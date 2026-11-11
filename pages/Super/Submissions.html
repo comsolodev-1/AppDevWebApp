@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Submissions</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>Submissions</h1>
+    <p class="sub">Review reports submitted by the barangays. Confirm on-time reports for 1.0 point and late reports for 0.5 point, or deny with a reason.</p>
+    <div id="litMessage"></div>
+
+    <div id="pnlReview" class="card" hidden>
+        <h2>Review Submission</h2>
+        <input type="hidden" id="hfSubmissionId" value="0" />
+        <div id="litReviewInfo"></div>
+        <div class="row">
+            <div class="field">
+                <label>Remark (when confirming)</label>
+                <select id="ddlRemark">
+                    <option>Good</option>
+                    <option>Needs Improvement</option>
+                    <option>Bad</option>
+                </select>
+            </div>
+            <div class="field wide">
+                <label>Reason for denial (required when denying)</label>
+                <input type="text" id="txtDenyReason" maxlength="255" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="field wide">
+                <label>Denial attachment (optional)</label>
+                <input type="file" id="fuDenial" />
+            </div>
+        </div>
+        <button type="button" id="btnConfirm" class="btn">Confirm</button>
+        <button type="button" id="btnDeny" class="btn btn-danger">Deny</button>
+        <button type="button" id="btnCancelReview" class="btn btn-outline">Close</button>
+    </div>
+
+    <div class="row">
+        <div class="field">
+            <label>Status</label>
+            <select id="ddlStatus">
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Denied">Denied</option>
+                <option value="">All</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Barangay</label>
+            <select id="ddlBarangay"></select>
+        </div>
+        <div class="field wide">
+            <label>Search activity</label>
+            <input type="text" id="txtSearch" maxlength="100" />
+        </div>
+        <button type="button" id="btnFilter" class="btn">Filter</button>
+    </div>
+
+    <div class="grid-wrap" id="gvSubmissions"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-submissions.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Announcements</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <div class="panel-title">
+        <div>
+            <h1>Announcements</h1>
+            <p class="sub">Post notices for the public, a role, or a specific barangay.</p>
+        </div>
+        <button type="button" id="btnNew" class="btn">+ New Announcement</button>
+    </div>
+    <div id="litMessage"></div>
+
+    <div id="pnlForm" class="card" hidden>
+        <h2 id="litFormTitle"></h2>
+        <input type="hidden" id="hfId" value="0" />
+        <div class="row">
+            <div class="field wide"><label>Title *</label><input type="text" id="txtTitle" maxlength="150" /></div>
+        </div>
+        <div class="row">
+            <div class="field wide"><label>Content *</label><textarea id="txtContent" rows="5"></textarea></div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Priority</label>
+                <select id="ddlPriority">
+                    <option>Low</option>
+                    <option selected>Medium</option>
+                    <option>High</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Visible to</label>
+                <select id="ddlVisibility">
+                    <option value="All">Everyone (public)</option>
+                    <option value="Specific Role">Specific role</option>
+                    <option value="Specific Barangay">Specific barangay</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Target role</label>
+                <select id="ddlRole"></select>
+            </div>
+            <div class="field">
+                <label>Target barangay</label>
+                <select id="ddlTargetBarangay"></select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Status</label>
+                <select id="ddlStatus">
+                    <option>Draft</option>
+                    <option selected>Published</option>
+                    <option>Archived</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Expiration date (optional)</label>
+                <input type="date" id="txtExpiration" />
+            </div>
+            <div class="field">
+                <label>Pin</label>
+                <span><input type="checkbox" id="chkPinned" /> <label for="chkPinned" style="font-weight:400">Pin to top</label></span>
+            </div>
+            <div class="field wide">
+                <label>Attachment (optional)</label>
+                <input type="file" id="fuAttachment" />
+                <span id="litCurrentFile"></span>
+            </div>
+        </div>
+        <button type="button" id="btnSave" class="btn">Save</button>
+        <button type="button" id="btnCancel" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div class="grid-wrap" id="gvAnnouncements"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-announcements.js"></script>
+</body>
+</html>

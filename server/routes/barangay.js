@@ -27,7 +27,7 @@ router.get('/dashboard', wrap(async (req, res) => {
       case 'Denied': denied++; todo.push(row); break;
     }
   }
-  const year = new Date().getFullYear();
+  const year = ui.currentYear();
   let rankText = '-';
   let scoreText = '0';
   for (const row of await scoring.ranking(year, 0)) {
@@ -53,29 +53,29 @@ router.post('/submissions', upload.single('file'), wrap(async (req, res) => {
   const status = row.display_status;
   if (status !== 'Not Submitted' && status !== 'Denied') fail('This activity cannot be submitted right now.');
 
-  const saved = uploads.save(req.file, 'submissions');
+  const saved = await uploads.save(req.file, 'submissions');
   if (!saved.ok) fail(saved.error);
 
   const isLate = row.is_overdue ? 1 : 0;
   try {
     if (row.submission_id === null) {
-      await db.insert("INSERT INTO submissions (period_id, barangay_code, submitted_by, file_name, file_path, date_submitted, submission_status, submission_type, is_late) VALUES (@period, @barangay, @user, @fileName, @filePath, NOW(), 'Pending', 'Regular', @late)",
+      await db.execute("INSERT INTO submissions (period_id, barangay_code, submitted_by, file_name, file_path, date_submitted, submission_status, submission_type, is_late) VALUES (@period, @barangay, @user, @fileName, @filePath, NOW(), 'Pending', 'Regular', @late)",
         '@period', periodId, '@barangay', code, '@user', auth.userId(req), '@fileName', saved.originalName, '@filePath', saved.storedPath, '@late', isLate);
     } else {
       const old = await db.queryRow("SELECT file_path, denial_attachment FROM submissions WHERE date_id = @id AND barangay_code = @b AND submission_status = 'Denied'", '@id', Number(row.submission_id), '@b', code);
       if (!old) {
-        uploads.remove(saved.storedPath);
+        await uploads.remove(saved.storedPath);
         fail('This submission can no longer be replaced.');
       }
       await db.execute("UPDATE submissions SET file_name = @fileName, file_path = @filePath, submitted_by = @user, date_submitted = NOW(), submission_status = 'Pending', submission_type = 'Resubmission', is_late = @late, score = NULL, confirmed_by = NULL, confirmation_date = NULL, remarks = NULL, denial_reason = NULL, denial_attachment = NULL, resubmission_count = resubmission_count + 1, date_modified = NOW() WHERE date_id = @id AND barangay_code = @b",
         '@fileName', saved.originalName, '@filePath', saved.storedPath, '@user', auth.userId(req), '@late', isLate, '@id', Number(row.submission_id), '@b', code);
-      uploads.remove(old.file_path);
-      if (old.denial_attachment !== null) uploads.remove(old.denial_attachment);
+      await uploads.remove(old.file_path);
+      if (old.denial_attachment !== null) await uploads.remove(old.denial_attachment);
     }
   } catch (err) {
     if (err.name === 'UserError') throw err;
     console.error(err);
-    uploads.remove(saved.storedPath);
+    await uploads.remove(saved.storedPath);
     fail('The report could not be saved. Please try again.');
   }
   res.json({ ok: true, message: 'Report submitted. It is now waiting for review.' });
@@ -91,7 +91,7 @@ router.delete('/submissions/:periodId', wrap(async (req, res) => {
     const file = await db.queryRow("SELECT file_path FROM submissions WHERE date_id = @id AND barangay_code = @b AND submission_status = 'Pending'", '@id', Number(row.submission_id), '@b', code);
     if (file) {
       await db.execute("DELETE FROM submissions WHERE date_id = @id AND barangay_code = @b AND submission_status = 'Pending'", '@id', Number(row.submission_id), '@b', code);
-      uploads.remove(file.file_path);
+      await uploads.remove(file.file_path);
       return res.json({ ok: true, message: 'Submission removed. You can submit the correct file now.' });
     }
   }
@@ -100,20 +100,20 @@ router.delete('/submissions/:periodId', wrap(async (req, res) => {
 
 router.get('/history', wrap(async (req, res) => {
   let year = toInt(req.query.year);
-  if (Number.isNaN(year)) year = new Date().getFullYear();
-  const rows = await db.query('SELECT s.date_id, a.activity_name, p.period_name, s.date_submitted, s.file_name, s.submission_status, s.is_late, s.score, s.remarks, s.denial_reason FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id JOIN activities a ON a.activity_id = p.activity_id WHERE s.barangay_code = @b AND YEAR(p.submission_deadline) = @y ORDER BY s.date_submitted DESC', '@b', auth.barangayCode(req), '@y', year);
+  if (Number.isNaN(year)) year = ui.currentYear();
+  const rows = await db.query('SELECT s.date_id, a.activity_name, p.period_name, s.date_submitted, s.file_name, s.submission_status, s.is_late, s.score, s.remarks, s.denial_reason FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id JOIN activities a ON a.activity_id = p.activity_id WHERE s.barangay_code = @b AND EXTRACT(YEAR FROM p.submission_deadline) = @y ORDER BY s.date_submitted DESC', '@b', auth.barangayCode(req), '@y', year);
   res.json({ rows });
 }));
 
 router.get('/report-card.pdf', wrap(async (req, res) => {
   let year = toInt(req.query.year);
-  if (Number.isNaN(year)) year = new Date().getFullYear();
+  if (Number.isNaN(year)) year = ui.currentYear();
   const report = await reportBuilder.reportCard(auth.barangayCode(req), year);
   pdfExport.send(res, report, 'report-card-' + year + '.pdf');
 }));
 
 // ---- Officials and Roster ----
-const rosterList = "SELECT roster_id, CONCAT(first_name, ' ', COALESCE(CONCAT(LEFT(middle_name, 1), '. '), ''), last_name, COALESCE(CONCAT(' ', suffix), '')) AS full_name, position, committee, contact_number, status FROM barangay_roster WHERE barangay_code = @b ORDER BY last_name, first_name";
+const rosterList = "SELECT roster_id, first_name || ' ' || COALESCE(LEFT(middle_name, 1) || '. ', '') || last_name || COALESCE(' ' || suffix, '') AS full_name, position, committee, contact_number, status FROM barangay_roster WHERE barangay_code = @b ORDER BY last_name, first_name";
 
 router.get('/roster', wrap(async (req, res) => {
   res.json({ rows: await db.query(rosterList, '@b', auth.barangayCode(req)) });
@@ -140,7 +140,7 @@ function rosterValues(body) {
 
 router.post('/roster', wrap(async (req, res) => {
   const v = rosterValues(req.body || {});
-  await db.execute("INSERT INTO barangay_roster (barangay_code, first_name, middle_name, last_name, suffix, position, committee, contact_number, email, address, status, date_activated) VALUES (@b, @first, @middle, @last, @suffix, @position, @committee, @contact, @email, @address, @status, IF(@status = 'Active', NOW(), NULL))",
+  await db.execute("INSERT INTO barangay_roster (barangay_code, first_name, middle_name, last_name, suffix, position, committee, contact_number, email, address, status, date_activated) VALUES (@b, @first, @middle, @last, @suffix, @position, @committee, @contact, @email, @address, @status, CASE WHEN @status = 'Active' THEN NOW() ELSE NULL END)",
     '@b', auth.barangayCode(req), '@first', v.first, '@middle', v.middle, '@last', v.last, '@suffix', v.suffix, '@position', v.position, '@committee', v.committee, '@contact', v.contact, '@email', v.email, '@address', v.address, '@status', v.status);
   res.json({ ok: true, message: 'Official added.' });
 }));

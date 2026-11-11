@@ -1,13 +1,14 @@
 'use strict';
 // Port of App_Code/Uploads.vb - validation and storage of uploaded files.
-const fs = require('fs');
+// Serverless workaround: files are stored in the database (table file_store) instead of a disk.
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
+const db = require('./db');
 
 const AllowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'];
 const MaxBytes = config.maxUploadBytes;
-const rootPath = path.resolve(config.uploadRoot);
+const MaxMb = Math.round(MaxBytes / (1024 * 1024));
 
 function startsWith(buffer, signature) {
   if (buffer.length < signature.length) return false;
@@ -34,12 +35,11 @@ function signatureMatches(extension, buffer) {
 function cleanName(raw) {
   // multer hands the name over as latin1 bytes - restore the UTF-8 text
   let name = Buffer.from(String(raw || ''), 'latin1').toString('utf8');
-  name = name.split(/[\\/]/).pop();
-  return name;
+  return name.split(/[\\/]/).pop();
 }
 
 // file: multer memory file. Returns { ok, storedPath, originalName, error }
-function save(file, folder) {
+async function save(file, folder) {
   if (!file) return { ok: false, error: 'Please choose a file to upload.' };
   let name = cleanName(file.originalname);
   const extension = path.extname(name).toLowerCase();
@@ -47,29 +47,26 @@ function save(file, folder) {
     return { ok: false, error: 'File type not allowed. Allowed: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG.' };
   }
   if (!file.size || file.size <= 0) return { ok: false, error: 'The selected file is empty.' };
-  if (file.size > MaxBytes) return { ok: false, error: 'File is too large. Maximum size is 10 MB.' };
+  if (file.size > MaxBytes) return { ok: false, error: 'File is too large. Maximum size is ' + MaxMb + ' MB.' };
   if (!signatureMatches(extension, file.buffer)) {
     return { ok: false, error: 'The file content does not match its file type.' };
   }
-  const storedName = crypto.randomBytes(16).toString('hex') + extension;
-  const directoryPath = path.join(rootPath, folder);
-  fs.mkdirSync(directoryPath, { recursive: true });
-  fs.writeFileSync(path.join(directoryPath, storedName), file.buffer);
+  const storedPath = folder + '/' + crypto.randomBytes(16).toString('hex') + extension;
+  await db.execute('INSERT INTO file_store (file_key, content) VALUES (@k, @c)', '@k', storedPath, '@c', file.buffer);
   if (name.length > 200) name = name.substring(name.length - 200);
-  return { ok: true, storedPath: folder + '/' + storedName, originalName: name };
+  return { ok: true, storedPath, originalName: name };
 }
 
-// Resolves a stored relative path, refusing anything outside the uploads folder
-function fullPath(storedPath) {
-  const full = path.resolve(rootPath, String(storedPath).split('/').join(path.sep));
-  if (full !== rootPath && !full.startsWith(rootPath + path.sep)) return null;
-  return full;
+// Returns a Buffer or null
+async function read(storedPath) {
+  if (!storedPath) return null;
+  const row = await db.queryRow('SELECT content FROM file_store WHERE file_key = @k', '@k', String(storedPath));
+  return row ? row.content : null;
 }
 
-function remove(storedPath) {
+async function remove(storedPath) {
   if (!storedPath) return;
-  const full = fullPath(storedPath);
-  if (full && fs.existsSync(full)) fs.unlinkSync(full);
+  await db.execute('DELETE FROM file_store WHERE file_key = @k', '@k', String(storedPath));
 }
 
 function contentTypeFor(fileName) {
@@ -86,4 +83,4 @@ function contentTypeFor(fileName) {
   return 'application/octet-stream';
 }
 
-module.exports = { AllowedExtensions, MaxBytes, save, fullPath, remove, contentTypeFor };
+module.exports = { AllowedExtensions, MaxBytes, MaxMb, save, read, remove, contentTypeFor };

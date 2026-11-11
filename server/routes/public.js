@@ -4,6 +4,7 @@ const express = require('express');
 const db = require('../db');
 const auth = require('../auth');
 const scoring = require('../scoring');
+const ui = require('../ui');
 const calendarData = require('../calendarData');
 const { wrap, toInt } = require('../util');
 
@@ -45,12 +46,12 @@ router.post('/logout', wrap(async (req, res) => {
 }));
 
 router.get('/public/dashboard', wrap(async (req, res) => {
-  const year = new Date().getFullYear();
+  const year = ui.currentYear();
   const barangays = await db.scalarInt("SELECT COUNT(*) FROM barangays WHERE status = 'Active'");
   const activities = await db.scalarInt("SELECT COUNT(*) FROM activities WHERE is_public = 1 AND activity_status <> 'Archived'");
-  const confirmed = await db.scalarInt("SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.submission_status = 'Confirmed' AND YEAR(p.submission_deadline) = @year", '@year', year);
+  const confirmed = await db.scalarInt("SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.submission_status = 'Confirmed' AND EXTRACT(YEAR FROM p.submission_deadline) = @year", '@year', year);
   const top = (await scoring.ranking(year, 0)).slice(0, 5);
-  const activityRows = await db.query("SELECT a.activity_name, a.frequency, p.period_name, p.submission_deadline, p.period_status FROM activities a JOIN reporting_period p ON p.activity_id = a.activity_id WHERE a.is_public = 1 AND a.activity_status <> 'Archived' AND p.submission_deadline >= DATE_SUB(NOW(), INTERVAL 30 DAY) ORDER BY p.submission_deadline LIMIT 10");
+  const activityRows = await db.query("SELECT a.activity_name, a.frequency, p.period_name, p.submission_deadline, p.period_status FROM activities a JOIN reporting_period p ON p.activity_id = a.activity_id WHERE a.is_public = 1 AND a.activity_status <> 'Archived' AND p.submission_deadline >= NOW() - INTERVAL '30 days' ORDER BY p.submission_deadline LIMIT 10");
   const dates = await db.query("SELECT event_date, title, event_type, location FROM important_dates WHERE visibility_type = 'All' AND event_date >= CURDATE() ORDER BY event_date LIMIT 6");
   res.json({ year, stats: { barangays, activities, confirmed }, top, activities: activityRows, dates });
 }));
@@ -59,7 +60,7 @@ router.get('/public/dashboard', wrap(async (req, res) => {
 router.get('/rankings', wrap(async (req, res) => {
   let year = toInt(req.query.year);
   let month = toInt(req.query.month);
-  if (Number.isNaN(year)) year = new Date().getFullYear();
+  if (Number.isNaN(year)) year = ui.currentYear();
   if (Number.isNaN(month) || month < 0 || month > 12) month = 0;
   res.json({ rows: await scoring.ranking(year, month) });
 }));
@@ -73,10 +74,10 @@ router.get('/announcements', wrap(async (req, res) => {
   let rows;
   if (auth.isLoggedIn(req) && !auth.isSuperAdmin(req)) {
     sql += "AND (visibility_type = 'All' OR (visibility_type = 'Specific Role' AND target_role_id = @role) OR (visibility_type = 'Specific Barangay' AND target_barangay_code = @barangay)) ";
-    sql += 'ORDER BY is_pinned DESC, date_published DESC LIMIT ' + max;
+    sql += 'ORDER BY is_pinned DESC, date_published DESC NULLS LAST LIMIT ' + max;
     rows = await db.query(sql, '@role', auth.roleId(req), '@barangay', auth.barangayCode(req));
   } else {
-    sql += "AND visibility_type = 'All' ORDER BY is_pinned DESC, date_published DESC LIMIT " + max;
+    sql += "AND visibility_type = 'All' ORDER BY is_pinned DESC, date_published DESC NULLS LAST LIMIT " + max;
     rows = await db.query(sql);
   }
   res.json({ rows });
@@ -88,16 +89,15 @@ router.get('/public/barangays', wrap(async (req, res) => {
 
 router.get('/public/roster', wrap(async (req, res) => {
   const code = String(req.query.code || '');
-  const rows = await db.query("SELECT CONCAT(first_name, ' ', COALESCE(CONCAT(LEFT(middle_name, 1), '. '), ''), last_name, COALESCE(CONCAT(' ', suffix), '')) AS full_name, position, committee FROM barangay_roster WHERE barangay_code = @id AND status = 'Active' ORDER BY last_name, first_name", '@id', code);
+  const rows = await db.query("SELECT first_name || ' ' || COALESCE(LEFT(middle_name, 1) || '. ', '') || last_name || COALESCE(' ' || suffix, '') AS full_name, position, committee FROM barangay_roster WHERE barangay_code = @id AND status = 'Active' ORDER BY last_name, first_name", '@id', code);
   res.json({ rows });
 }));
 
 router.get('/calendar', wrap(async (req, res) => {
   let year = toInt(req.query.year);
   let month = toInt(req.query.month);
-  const now = new Date();
-  if (Number.isNaN(year)) year = now.getFullYear();
-  if (Number.isNaN(month) || month < 1 || month > 12) month = now.getMonth() + 1;
+  if (Number.isNaN(year)) year = ui.currentYear();
+  if (Number.isNaN(month) || month < 1 || month > 12) month = ui.currentMonth();
   res.json({ year, month, rows: await calendarData.forMonth(year, month, true) });
 }));
 

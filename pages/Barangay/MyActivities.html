@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Activities</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>My Activities</h1>
+    <p class="sub">Reporting activities assigned to your barangay.</p>
+    <div id="litMessage"></div>
+
+    <div id="pnlSubmit" class="card" hidden>
+        <h2>Submit Report</h2>
+        <div id="litSubmitInfo"></div>
+        <div class="field wide">
+            <label>Upload report file (PDF, DOC, DOCX, XLS, XLSX, JPG, PNG - max 4 MB) *</label>
+            <input type="file" id="fuReport" />
+        </div>
+        <div style="margin-top:12px">
+            <button type="button" id="btnConfirmSubmit" class="btn">Submit Report</button>
+            <button type="button" id="btnCancelSubmit" class="btn btn-outline">Cancel</button>
+        </div>
+    </div>
+
+    <div id="pnlDetails" class="card" hidden>
+        <h2>Activity Details</h2>
+        <div id="litDetails"></div>
+        <button type="button" id="btnCloseDetails" class="btn btn-outline">Close</button>
+    </div>
+
+    <div class="row">
+        <div class="field wide">
+            <label>Search</label>
+            <input type="text" id="txtSearch" maxlength="100" placeholder="Search activities..." />
+        </div>
+        <div class="field">
+            <label>Status</label>
+            <select id="ddlStatus">
+                <option value="">All</option>
+                <option>Not Submitted</option>
+                <option>Pending</option>
+                <option>Confirmed</option>
+                <option>Denied</option>
+            </select>
+        </div>
+        <button type="button" id="btnFilter" class="btn">Filter</button>
+    </div>
+
+    <div class="grid-wrap" id="gvActivities"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/barangay-myactivities.js"></script>
+</body>
+</html>

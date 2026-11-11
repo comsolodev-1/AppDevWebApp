@@ -28,11 +28,11 @@ router.get('/meta', wrap(async (req, res) => {
 
 // ---------------- Dashboard ----------------
 router.get('/dashboard', wrap(async (req, res) => {
-  const year = new Date().getFullYear();
+  const year = ui.currentYear();
   const pending = await db.scalarInt("SELECT COUNT(*) FROM submissions WHERE submission_status = 'Pending'");
   const activeActivities = await db.scalarInt("SELECT COUNT(*) FROM activities WHERE activity_status = 'Active'");
-  const confirmed = await db.scalarInt("SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.submission_status = 'Confirmed' AND YEAR(p.submission_deadline) = @y", '@y', year);
-  const late = await db.scalarInt('SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.is_late = 1 AND YEAR(p.submission_deadline) = @y', '@y', year);
+  const confirmed = await db.scalarInt("SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.submission_status = 'Confirmed' AND EXTRACT(YEAR FROM p.submission_deadline) = @y", '@y', year);
+  const late = await db.scalarInt('SELECT COUNT(*) FROM submissions s JOIN reporting_period p ON p.period_id = s.period_id WHERE s.is_late = 1 AND EXTRACT(YEAR FROM p.submission_deadline) = @y', '@y', year);
   const missing = await db.scalarInt("SELECT COUNT(*) FROM reporting_period p JOIN activity_barangays ab ON ab.activity_id = p.activity_id JOIN activities a ON a.activity_id = p.activity_id WHERE a.activity_status <> 'Archived' AND p.submission_deadline < NOW() AND NOT EXISTS (SELECT 1 FROM submissions s WHERE s.period_id = p.period_id AND s.barangay_code = ab.barangay_code)");
   const pendingRows = await db.query("SELECT b.barangay_name, a.activity_name, p.period_name, s.date_submitted, s.is_late FROM submissions s JOIN barangays b ON b.barangay_code = s.barangay_code JOIN reporting_period p ON p.period_id = s.period_id JOIN activities a ON a.activity_id = p.activity_id WHERE s.submission_status = 'Pending' ORDER BY s.date_submitted LIMIT 8");
   res.json({ year, pending, activeActivities, confirmed, late, missing, pendingRows, ranking: await scoring.ranking(year, 0) });
@@ -45,7 +45,7 @@ router.get('/activities', wrap(async (req, res) => {
   const sql = 'SELECT a.activity_id, a.activity_name, a.description, a.frequency, a.activity_status, a.is_public, ' +
     '(SELECT MAX(p.submission_deadline) FROM reporting_period p WHERE p.activity_id = a.activity_id) AS latest_deadline, ' +
     '(SELECT COUNT(*) FROM activity_barangays ab WHERE ab.activity_id = a.activity_id) AS barangay_count ' +
-    'FROM activities a WHERE a.activity_name LIKE @search';
+    'FROM activities a WHERE a.activity_name ILIKE @search';
   const rows = status.length > 0
     ? await db.query(sql + ' AND a.activity_status = @status ORDER BY a.date_created DESC', '@search', search, '@status', status)
     : await db.query(sql + ' ORDER BY a.date_created DESC', '@search', search);
@@ -85,7 +85,7 @@ async function saveActivity(req, res, activityId) {
   let templatePath = null;
   let templateName = null;
   if (req.file) {
-    const saved = uploads.save(req.file, 'templates');
+    const saved = await uploads.save(req.file, 'templates');
     if (!saved.ok) fail(saved.error);
     templatePath = saved.storedPath;
     templateName = saved.originalName;
@@ -101,7 +101,7 @@ async function saveActivity(req, res, activityId) {
   try {
     if (activityId === 0) {
       await db.inTransaction(async (tx) => {
-        const newId = await tx.execute("INSERT INTO activities (activity_name, description, frequency, instructions, template_file_name, template_file_type, template_link, default_deadline, required_submission, activity_status, is_public, created_by) VALUES (@name, @description, @frequency, @instructions, @tname, @ttype, @tlink, @deadline, 1, 'Active', @public, @user)",
+        const newId = await tx.execute("INSERT INTO activities (activity_name, description, frequency, instructions, template_file_name, template_file_type, template_link, default_deadline, required_submission, activity_status, is_public, created_by) VALUES (@name, @description, @frequency, @instructions, @tname, @ttype, @tlink, @deadline, 1, 'Active', @public, @user) RETURNING activity_id AS id",
           '@name', name, '@description', description, '@frequency', frequency, '@instructions', instructions, '@tname', templateName, '@ttype', templateType, '@tlink', templatePath, '@deadline', periodHelper.fmt(deadline), '@public', isPublic, '@user', auth.userId(req));
         await periodHelper.createInTransaction(tx, newId, frequency, deadline, auth.userId(req));
         for (const code of selected) {
@@ -112,7 +112,7 @@ async function saveActivity(req, res, activityId) {
     } else {
       const existing = await db.queryRow('SELECT template_link FROM activities WHERE activity_id = @id', '@id', activityId);
       if (!existing) {
-        uploads.remove(templatePath);
+        await uploads.remove(templatePath);
         return res.status(404).json({ error: 'Activity not found.' });
       }
       if (templatePath !== null && existing.template_link !== null) oldTemplate = existing.template_link;
@@ -127,13 +127,13 @@ async function saveActivity(req, res, activityId) {
           await tx.execute('INSERT INTO activity_barangays (activity_id, barangay_code) VALUES (@a, @b)', '@a', activityId, '@b', code);
         }
       });
-      if (oldTemplate !== null) uploads.remove(oldTemplate);
+      if (oldTemplate !== null) await uploads.remove(oldTemplate);
       message = 'Activity updated.';
     }
   } catch (err) {
     if (err instanceof UserError) throw err;
     console.error(err);
-    uploads.remove(templatePath);
+    await uploads.remove(templatePath);
     fail('The activity could not be saved. Please try again.');
   }
   res.json({ ok: true, message });
@@ -152,7 +152,7 @@ router.delete('/activities/:id', wrap(async (req, res) => {
     return res.json({ ok: true, message: 'The activity already has submissions, so it was archived instead of deleted.' });
   }
   await db.execute('DELETE FROM activities WHERE activity_id = @id', '@id', activityId);
-  if (activity.template_link !== null) uploads.remove(activity.template_link);
+  if (activity.template_link !== null) await uploads.remove(activity.template_link);
   res.json({ ok: true, message: 'Activity deleted.' });
 }));
 
@@ -177,7 +177,7 @@ router.post('/activities/:id/periods', wrap(async (req, res) => {
 router.get('/submissions', wrap(async (req, res) => {
   const sql = 'SELECT s.date_id, b.barangay_name, a.activity_name, p.period_name, s.date_submitted, s.is_late, s.file_name, s.submission_status, s.score, s.remarks, s.denial_reason ' +
     'FROM submissions s JOIN barangays b ON b.barangay_code = s.barangay_code JOIN reporting_period p ON p.period_id = s.period_id JOIN activities a ON a.activity_id = p.activity_id ' +
-    "WHERE a.activity_name LIKE @search AND (@status = '' OR s.submission_status = @status) AND (@barangay = '' OR s.barangay_code = @barangay) ORDER BY s.date_submitted DESC";
+    "WHERE a.activity_name ILIKE @search AND (@status = '' OR s.submission_status = @status) AND (@barangay = '' OR s.barangay_code = @barangay) ORDER BY s.date_submitted DESC";
   const rows = await db.query(sql, '@search', '%' + String(req.query.search || '').trim() + '%', '@status', String(req.query.status || ''), '@barangay', String(req.query.barangay || ''));
   res.json({ rows });
 }));
@@ -206,13 +206,13 @@ router.post('/submissions/:id/deny', upload.single('attachment'), wrap(async (re
   if (reason.length === 0) fail('Please enter a reason for denying the submission.');
   let attachmentPath = null;
   if (req.file) {
-    const saved = uploads.save(req.file, 'denials');
+    const saved = await uploads.save(req.file, 'denials');
     if (!saved.ok) fail(saved.error);
     attachmentPath = saved.storedPath;
   }
   const changed = await db.execute("UPDATE submissions SET submission_status = 'Denied', score = NULL, confirmed_by = @user, confirmation_date = NOW(), remarks = NULL, denial_reason = @reason, denial_attachment = @attachment, date_modified = NOW() WHERE date_id = @id AND submission_status = 'Pending'",
     '@user', auth.userId(req), '@reason', reason, '@attachment', attachmentPath, '@id', id);
-  if (changed === 0) uploads.remove(attachmentPath);
+  if (changed === 0) await uploads.remove(attachmentPath);
   res.json({ ok: true, message: 'Submission denied. The barangay can now resubmit.' });
 }));
 
@@ -227,10 +227,9 @@ router.get('/reports/periods', wrap(async (req, res) => {
 }));
 
 async function buildReport(q) {
-  const now = new Date();
-  let year = toInt(q.year); if (Number.isNaN(year)) year = now.getFullYear();
-  let month = toInt(q.month); if (Number.isNaN(month)) month = now.getMonth() + 1;
-  if (month < 0 || month > 12) month = now.getMonth() + 1;
+  let year = toInt(q.year); if (Number.isNaN(year)) year = ui.currentYear();
+  let month = toInt(q.month); if (Number.isNaN(month)) month = ui.currentMonth();
+  if (month < 0 || month > 12) month = ui.currentMonth();
   const key = String(q.key || '');
   switch (key) {
     case 'weekly':
@@ -302,7 +301,7 @@ async function saveAnnouncement(req, res, id) {
   let filePath = null;
   let fileName = null;
   if (req.file) {
-    const saved = uploads.save(req.file, 'announcements');
+    const saved = await uploads.save(req.file, 'announcements');
     if (!saved.ok) fail(saved.error);
     filePath = saved.storedPath;
     fileName = saved.originalName;
@@ -317,27 +316,27 @@ async function saveAnnouncement(req, res, id) {
 
   try {
     if (id === 0) {
-      await db.execute("INSERT INTO announcements (title, content, attachment_file_name, attachment_file_path, created_by, date_published, expiration_date, priority, status, visibility_type, target_role_id, target_barangay_code, is_pinned) VALUES (@title, @content, @fname, @fpath, @user, IF(@status = 'Published', NOW(), NULL), @expiration, @priority, @status, @visibility, @role, @barangay, @pinned)",
+      await db.execute("INSERT INTO announcements (title, content, attachment_file_name, attachment_file_path, created_by, date_published, expiration_date, priority, status, visibility_type, target_role_id, target_barangay_code, is_pinned) VALUES (@title, @content, @fname, @fpath, @user, CASE WHEN @status = 'Published' THEN NOW() ELSE NULL END, @expiration, @priority, @status, @visibility, @role, @barangay, @pinned)",
         '@title', title, '@content', content, '@fname', fileName, '@fpath', filePath, '@user', auth.userId(req), '@expiration', expiration, '@priority', priority, '@status', status, '@visibility', visibility, '@role', targetRole, '@barangay', targetBarangay, '@pinned', pinned);
       message = 'Announcement saved.';
     } else {
       const old = await db.queryRow('SELECT attachment_file_path FROM announcements WHERE announcement_id = @id', '@id', id);
       if (!old) {
-        uploads.remove(filePath);
+        await uploads.remove(filePath);
         return res.status(404).json({ error: 'Announcement not found.' });
       }
-      await db.execute("UPDATE announcements SET title = @title, content = @content, expiration_date = @expiration, priority = @priority, status = @status, visibility_type = @visibility, target_role_id = @role, target_barangay_code = @barangay, is_pinned = @pinned, date_published = IF(@status = 'Published' AND date_published IS NULL, NOW(), date_published), date_modified = NOW() WHERE announcement_id = @id",
+      await db.execute("UPDATE announcements SET title = @title, content = @content, expiration_date = @expiration, priority = @priority, status = @status, visibility_type = @visibility, target_role_id = @role, target_barangay_code = @barangay, is_pinned = @pinned, date_published = CASE WHEN @status = 'Published' AND date_published IS NULL THEN NOW() ELSE date_published END, date_modified = NOW() WHERE announcement_id = @id",
         '@title', title, '@content', content, '@expiration', expiration, '@priority', priority, '@status', status, '@visibility', visibility, '@role', targetRole, '@barangay', targetBarangay, '@pinned', pinned, '@id', id);
       if (filePath !== null) {
         await db.execute('UPDATE announcements SET attachment_file_name = @fname, attachment_file_path = @fpath WHERE announcement_id = @id', '@fname', fileName, '@fpath', filePath, '@id', id);
-        if (old.attachment_file_path !== null) uploads.remove(old.attachment_file_path);
+        if (old.attachment_file_path !== null) await uploads.remove(old.attachment_file_path);
       }
       message = 'Announcement updated.';
     }
   } catch (err) {
     if (err instanceof UserError) throw err;
     console.error(err);
-    uploads.remove(filePath);
+    await uploads.remove(filePath);
     fail('The announcement could not be saved. Please try again.');
   }
   res.json({ ok: true, message });
@@ -351,7 +350,7 @@ router.delete('/announcements/:id', wrap(async (req, res) => {
   const row = await db.queryRow('SELECT * FROM announcements WHERE announcement_id = @id', '@id', id);
   if (!row) return res.json({ ok: true });
   await db.execute('DELETE FROM announcements WHERE announcement_id = @id', '@id', id);
-  if (row.attachment_file_path !== null) uploads.remove(row.attachment_file_path);
+  if (row.attachment_file_path !== null) await uploads.remove(row.attachment_file_path);
   res.json({ ok: true, message: 'Announcement deleted.' });
 }));
 
@@ -406,7 +405,7 @@ router.delete('/dates/:id', wrap(async (req, res) => {
 
 // ---------------- Accounts ----------------
 router.get('/accounts', wrap(async (req, res) => {
-  res.json({ rows: await db.query("SELECT u.user_id, u.username, CONCAT(u.first_name, ' ', u.last_name) AS full_name, r.role_name AS role, COALESCE(b.barangay_name, '-') AS barangay_name, u.last_login, u.account_status FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN barangays b ON b.barangay_code = u.barangay_code ORDER BY r.role_id, b.barangay_name") });
+  res.json({ rows: await db.query("SELECT u.user_id, u.username, u.first_name || ' ' || u.last_name AS full_name, r.role_name AS role, COALESCE(b.barangay_name, '-') AS barangay_name, u.last_login, u.account_status FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN barangays b ON b.barangay_code = u.barangay_code ORDER BY r.role_id, b.barangay_name") });
 }));
 
 router.get('/accounts/free-barangays', wrap(async (req, res) => {
@@ -421,12 +420,12 @@ router.post('/accounts', wrap(async (req, res) => {
     fail('Barangay, a username of at least 4 characters, first name and last name are required.');
   }
   if (!auth.passwordIsStrong(String(b.password || ''))) fail('Password must be at least 8 characters and include letters and numbers.');
-  if (await db.scalarInt('SELECT COUNT(*) FROM users WHERE username = @u', '@u', username) > 0) fail('That username is already taken.');
+  if (await db.scalarInt('SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(@u)', '@u', username) > 0) fail('That username is already taken.');
   if (await db.scalarInt('SELECT COUNT(*) FROM users WHERE role_id = ' + ADMIN_ROLE_SQL + ' AND barangay_code = @b', '@b', barangayCode) > 0) fail('This barangay already has an admin account.');
   const hash = await auth.hashPassword(String(b.password));
   try {
     await db.inTransaction(async (tx) => {
-      const newId = await tx.execute('INSERT INTO users (username, password_hash, first_name, middle_name, last_name, suffix, contact_number, role_id, barangay_code, account_status, created_by, password_changed) VALUES (@username, @hash, @first, @middle, @last, @suffix, @contact, ' + ADMIN_ROLE_SQL + ", @barangay, 'Active', @creator, NOW())",
+      const newId = await tx.execute('INSERT INTO users (username, password_hash, first_name, middle_name, last_name, suffix, contact_number, role_id, barangay_code, account_status, created_by, password_changed) VALUES (@username, @hash, @first, @middle, @last, @suffix, @contact, ' + ADMIN_ROLE_SQL + ", @barangay, 'Active', @creator, NOW()) RETURNING user_id AS id",
         '@username', username, '@hash', hash, '@first', String(b.first_name).trim(), '@middle', clean(b.middle_name), '@last', String(b.last_name).trim(), '@suffix', clean(b.suffix), '@contact', clean(b.contact_number), '@barangay', barangayCode, '@creator', auth.userId(req));
       await tx.execute('UPDATE barangays SET user_id = @u, date_modified = NOW() WHERE barangay_code = @b', '@u', newId, '@b', barangayCode);
     });

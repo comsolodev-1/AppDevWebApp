@@ -40,18 +40,28 @@ function monthLabel(year, month) {
   return MONTHS[month - 1] + ' ' + year;
 }
 
-// "MMM d, yyyy h:mm tt" for the current server time (PDF "Generated" line)
+// Current Philippine time (the server may run in UTC, e.g. on Vercel)
+function manila() {
+  const out = {};
+  new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+    .formatToParts(new Date()).forEach((p) => { if (p.type !== 'literal') out[p.type] = parseInt(p.value, 10); });
+  return out;
+}
+
+function currentYear() { return manila().year; }
+function currentMonth() { return manila().month; }
+
+// "MMM d, yyyy h:mm tt" for the current time (PDF "Generated" line)
 function nowText() {
-  const n = new Date();
-  return SHORT[n.getMonth()] + ' ' + n.getDate() + ', ' + n.getFullYear() + ' ' +
-    timeText({ h: n.getHours(), mi: n.getMinutes() });
+  const n = manila();
+  return SHORT[n.month - 1] + ' ' + n.day + ', ' + n.year + ' ' + timeText({ h: n.hour, mi: n.minute });
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 function todayString() {
-  const n = new Date();
-  return n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+  const n = manila();
+  return n.year + '-' + pad2(n.month) + '-' + pad2(n.day);
 }
 
-module.exports = { MONTHS, SHORT, dateText, dateTimeText, scoreText, monthLabel, nowText, todayString, pad2 };
+module.exports = { MONTHS, SHORT, dateText, dateTimeText, scoreText, monthLabel, nowText, todayString, currentYear, currentMonth, pad2 };

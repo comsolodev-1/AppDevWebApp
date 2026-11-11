@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>Dashboard</h1>
+    <p class="sub">Municipal overview of barangay report compliance.</p>
+    <div id="litAlerts"></div>
+    <div id="litStats"></div>
+    <div class="card">
+        <h2>Submissions Waiting for Review</h2>
+        <div class="grid-wrap" id="gvPending"></div>
+        <a href="/Super/Submissions.html">Review submissions</a>
+    </div>
+    <div class="card">
+        <h2>Ranking This Year</h2>
+        <div class="grid-wrap" id="gvRank"></div>
+    </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-dashboard.js"></script>
+</body>
+</html>

@@ -1,7 +1,6 @@
 'use strict';
 // Port of Download.aspx - permission-checked file download (the only way to get uploads)
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const db = require('../db');
 const auth = require('../auth');
@@ -64,17 +63,18 @@ router.get('/download', wrap(async (req, res) => {
   }
 
   if (!storedPath) return deny();
-  const fullPath = uploads.fullPath(storedPath);
-  if (!fullPath || !fs.existsSync(fullPath)) return deny();
+  const content = await uploads.read(storedPath);
+  if (!content) return deny();
 
   const safeName = String(displayName || 'download').replace(/"/g, '').replace(/[\r\n]/g, '');
   res.set({
     'Content-Type': uploads.contentTypeFor(safeName),
     'Content-Disposition': 'attachment; filename="' + safeName.replace(/[^\x20-\x7E]/g, '_') + '"; filename*=UTF-8\'\'' + encodeURIComponent(safeName),
+    'Content-Length': content.length,
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'no-store'
   });
-  fs.createReadStream(fullPath).pipe(res);
+  res.end(content);
 }));
 
 module.exports = router;

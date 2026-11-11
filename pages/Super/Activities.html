@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Activities</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <div class="panel-title">
+        <div>
+            <h1>Activities</h1>
+            <p class="sub">Manage reporting activities and deadlines.</p>
+        </div>
+        <button type="button" id="btnNew" class="btn">+ New Activity</button>
+    </div>
+    <div id="litMessage"></div>
+
+    <div id="pnlForm" class="card" hidden>
+        <h2 id="litFormTitle"></h2>
+        <input type="hidden" id="hfActivityId" value="0" />
+        <div class="row">
+            <div class="field wide"><label>Activity title *</label><input type="text" id="txtName" maxlength="150" /></div>
+        </div>
+        <div class="row">
+            <div class="field wide"><label>Description</label><textarea id="txtDescription" rows="3"></textarea></div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Reporting period (frequency) *</label>
+                <select id="ddlFrequency"></select>
+            </div>
+            <div class="field">
+                <label>Submission deadline *</label>
+                <input type="date" id="txtDeadline" />
+            </div>
+            <div class="field">
+                <label>Visibility</label>
+                <span><input type="checkbox" id="chkPublic" checked /> <label for="chkPublic" style="font-weight:400">Public (shown on the viewer pages)</label></span>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field wide"><label>Requirements (one per line)</label><textarea id="txtRequirements" rows="4"></textarea></div>
+        </div>
+        <div class="row">
+            <div class="field wide">
+                <label>Report template file (optional)</label>
+                <input type="file" id="fuTemplate" />
+                <span id="litCurrentTemplate"></span>
+            </div>
+        </div>
+        <div class="field wide">
+            <label>Assigned barangays *</label>
+            <div class="checks" id="cblBarangays"></div>
+            <div style="margin-top:6px">
+                <button type="button" id="btnAll" class="btn btn-outline btn-sm">Select all</button>
+                <button type="button" id="btnNone" class="btn btn-outline btn-sm">Clear</button>
+            </div>
+        </div>
+        <div class="notice notice-ok" style="margin-top:12px">Status is set automatically: Active until the deadline passes, then Closed. Late submissions are still accepted and score 0.5.</div>
+        <button type="button" id="btnSave" class="btn">Save Activity</button>
+        <button type="button" id="btnCancel" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div id="pnlPeriod" class="card" hidden>
+        <h2>Add Reporting Period</h2>
+        <div id="litPeriodInfo"></div>
+        <input type="hidden" id="hfPeriodActivityId" value="0" />
+        <div class="row">
+            <div class="field">
+                <label>Deadline of the new period *</label>
+                <input type="date" id="txtNewDeadline" />
+            </div>
+        </div>
+        <button type="button" id="btnAddPeriod" class="btn">Add Period</button>
+        <button type="button" id="btnCancelPeriod" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div class="row">
+        <div class="field wide">
+            <label>Search</label>
+            <input type="text" id="txtSearch" maxlength="100" placeholder="Search activities..." />
+        </div>
+        <div class="field">
+            <label>Status</label>
+            <select id="ddlStatusFilter">
+                <option value="">All</option>
+                <option>Active</option>
+                <option>Closed</option>
+                <option>Archived</option>
+            </select>
+        </div>
+        <button type="button" id="btnFilter" class="btn">Filter</button>
+    </div>
+
+    <div class="grid-wrap" id="gvActivities"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-activities.js"></script>
+</body>
+</html>

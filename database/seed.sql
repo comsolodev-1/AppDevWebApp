@@ -1,12 +1,11 @@
--- Seed data: 15 barangays of Talisay, Camarines Norte, 1 Super Admin, 1 Barangay Admin per barangay.
+-- Seed data (PostgreSQL): 15 barangays of Talisay, Camarines Norte, 1 Super Admin, 1 Barangay Admin per barangay.
 -- The roles table is filled by schema.sql (Super Admin, Barangay Admin, Viewer).
 -- Barangay codes below (TAL-01 ...) are placeholders. Replace them with the official codes;
 -- every table that points to a barangay uses ON UPDATE CASCADE, so changing a code is safe.
 -- Default passwords (change after first login): superadmin = Admin@12345 ; barangay admins = Barangay@123
-USE bantay_barangay;
 
 INSERT INTO users (username,password_hash,first_name,last_name,role_id,account_status,password_changed) VALUES
-('superadmin','$2b$11$7WjR3re9sWDM6zYRKRDOi.T29Kr5rRdoaqaaBUrm29g0tzLJVdJlu','DILG','Super Admin',(SELECT role_id FROM roles WHERE role_name = 'Super Admin'),'Active',NOW());
+('superadmin','$2b$11$7WjR3re9sWDM6zYRKRDOi.T29Kr5rRdoaqaaBUrm29g0tzLJVdJlu','DILG','Super Admin',(SELECT role_id FROM roles WHERE role_name = 'Super Admin'),'Active',(NOW() AT TIME ZONE 'Asia/Manila'));
 
 INSERT INTO barangays (barangay_code,barangay_name,municipality,province,status) VALUES
 ('TAL-01','Binanuaan','Talisay','Camarines Norte','Active'),
@@ -42,4 +41,4 @@ INSERT INTO users (username,password_hash,first_name,last_name,role_id,barangay_
 ('brgy_santa_elena','$2b$11$mkdU6LTfqVDTPAwkgmI0WeHApugqvE2HCoULN7k65d1d9njYqEucu','Barangay','Santa Elena Admin',(SELECT role_id FROM roles WHERE role_name = 'Barangay Admin'),'TAL-14','Active',1),
 ('brgy_santo_nino','$2b$11$mkdU6LTfqVDTPAwkgmI0WeHApugqvE2HCoULN7k65d1d9njYqEucu','Barangay','Santo Niño Admin',(SELECT role_id FROM roles WHERE role_name = 'Barangay Admin'),'TAL-15','Active',1);
 
-UPDATE barangays b JOIN users u ON u.barangay_code = b.barangay_code SET b.user_id = u.user_id;
+UPDATE barangays b SET user_id = u.user_id FROM users u WHERE u.barangay_code = b.barangay_code;

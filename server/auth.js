@@ -9,9 +9,6 @@ const BarangayAdminRole = 'Barangay Admin';
 const MaxAttempts = 5;
 const LockMinutes = 15;
 
-// username + IP -> { count, expires }   (replaces HttpRuntime.Cache)
-const attempts = new Map();
-
 function clientIp(req) {
   return req.ip || (req.connection && req.connection.remoteAddress) || '';
 }
@@ -20,14 +17,9 @@ function lockKey(req, username) {
   return 'lock:' + username.toLowerCase() + ':' + clientIp(req);
 }
 
-function currentAttempts(key) {
-  const entry = attempts.get(key);
-  if (!entry) return 0;
-  if (entry.expires < Date.now()) {
-    attempts.delete(key);
-    return 0;
-  }
-  return entry.count;
+// Failed-login counter lives in the database (serverless calls do not share memory)
+async function currentAttempts(key) {
+  return db.scalarInt('SELECT attempts FROM login_attempts WHERE attempt_key = @k AND expires_at > CURRENT_TIMESTAMP', '@k', key);
 }
 
 function hashPassword(password) {
@@ -56,12 +48,12 @@ function newCsrfToken() {
 async function signIn(req, username, password) {
   username = (username || '').trim();
   const key = lockKey(req, username);
-  const count = currentAttempts(key);
+  const count = await currentAttempts(key);
   if (count >= MaxAttempts) {
     return { ok: false, message: 'Too many failed attempts. Please try again in ' + LockMinutes + ' minutes.' };
   }
 
-  const row = await db.queryRow("SELECT u.user_id, u.password_hash, u.first_name, u.last_name, u.role_id, r.role_name, u.barangay_code, u.account_status, b.barangay_name, b.status AS barangay_status FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN barangays b ON b.barangay_code = u.barangay_code WHERE u.username = @username", '@username', username);
+  const row = await db.queryRow("SELECT u.user_id, u.password_hash, u.first_name, u.last_name, u.role_id, r.role_name, u.barangay_code, u.account_status, b.barangay_name, b.status AS barangay_status FROM users u JOIN roles r ON r.role_id = u.role_id LEFT JOIN barangays b ON b.barangay_code = u.barangay_code WHERE LOWER(u.username) = LOWER(@username)", '@username', username);
 
   let valid = false;
   if (row && typeof password === 'string' && password.length > 0) {
@@ -73,7 +65,7 @@ async function signIn(req, username, password) {
   }
 
   if (!valid) {
-    attempts.set(key, { count: count + 1, expires: Date.now() + LockMinutes * 60 * 1000 });
+    await db.execute("INSERT INTO login_attempts (attempt_key, attempts, expires_at) VALUES (@k, @n, CURRENT_TIMESTAMP + INTERVAL '" + LockMinutes + " minutes') ON CONFLICT (attempt_key) DO UPDATE SET attempts = EXCLUDED.attempts, expires_at = EXCLUDED.expires_at", '@k', key, '@n', count + 1);
     return { ok: false, message: 'Invalid username or password.' };
   }
 
@@ -84,7 +76,7 @@ async function signIn(req, username, password) {
     return { ok: false, message: 'This barangay is not active. Please contact the DILG Talisay office.' };
   }
 
-  attempts.delete(key);
+  await db.execute('DELETE FROM login_attempts WHERE attempt_key = @k', '@k', key);
   await new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
   req.session.csrf = newCsrfToken();
   req.session.userId = Number(row.user_id);
