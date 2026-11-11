@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Reports</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>My Reports</h1>
+    <p class="sub">History of your barangay's report submissions.</p>
+    <div id="litMessage"></div>
+    <div class="row">
+        <div class="field">
+            <label>Year</label>
+            <select id="ddlYear"></select>
+        </div>
+        <button type="button" id="btnReportCard" class="btn">Download Report Card (PDF)</button>
+    </div>
+    <div class="grid-wrap" id="gvHistory"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/barangay-myreports.js"></script>
+</body>
+</html>

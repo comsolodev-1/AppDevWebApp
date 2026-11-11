@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Officials and Roster</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <div class="panel-title">
+        <div>
+            <h1>Officials and Roster</h1>
+            <p class="sub">Barangay and Sangguniang Kabataan officials of your barangay.</p>
+        </div>
+        <button type="button" id="btnNew" class="btn">+ Add Official</button>
+    </div>
+    <div id="litMessage"></div>
+
+    <div id="pnlForm" class="card" hidden>
+        <h2 id="litFormTitle"></h2>
+        <input type="hidden" id="hfRosterId" value="0" />
+        <div class="row">
+            <div class="field"><label>First name *</label><input type="text" id="txtFirst" maxlength="50" /></div>
+            <div class="field"><label>Middle name</label><input type="text" id="txtMiddle" maxlength="50" /></div>
+            <div class="field"><label>Last name *</label><input type="text" id="txtLast" maxlength="50" /></div>
+            <div class="field"><label>Suffix</label><input type="text" id="txtSuffix" maxlength="10" /></div>
+        </div>
+        <div class="row">
+            <div class="field"><label>Position *</label><input type="text" id="txtPosition" maxlength="50" /></div>
+            <div class="field"><label>Committee</label><input type="text" id="txtCommittee" maxlength="100" /></div>
+            <div class="field"><label>Contact number</label><input type="text" id="txtContact" maxlength="15" /></div>
+            <div class="field"><label>Email</label><input type="text" id="txtEmail" maxlength="100" /></div>
+        </div>
+        <div class="row">
+            <div class="field wide"><label>Address</label><input type="text" id="txtAddress" maxlength="255" /></div>
+            <div class="field">
+                <label>Status</label>
+                <select id="ddlStatus">
+                    <option>Active</option>
+                    <option>Inactive</option>
+                </select>
+            </div>
+        </div>
+        <button type="button" id="btnSave" class="btn">Save</button>
+        <button type="button" id="btnCancel" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div class="grid-wrap" id="gvRoster"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/barangay-roster.js"></script>
+</body>
+</html>

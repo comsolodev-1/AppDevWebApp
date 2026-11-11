@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reports</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>Reports</h1>
+    <p class="sub">Generate a report, preview it, and download it as a PDF.</p>
+    <div id="litMessage"></div>
+    <div class="card">
+        <div class="row">
+            <div class="field wide">
+                <label>Report</label>
+                <select id="ddlReport"></select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field wide" id="pnlActivity">
+                <label>Activity</label>
+                <select id="ddlActivity"></select>
+            </div>
+            <div class="field" id="pnlPeriod">
+                <label>Period</label>
+                <select id="ddlPeriod"></select>
+            </div>
+            <div class="field" id="pnlBarangay">
+                <label>Barangay</label>
+                <select id="ddlBarangay"></select>
+            </div>
+            <div class="field" id="pnlYear">
+                <label>Year</label>
+                <select id="ddlYear"></select>
+            </div>
+            <div class="field" id="pnlMonth">
+                <label>Month</label>
+                <select id="ddlMonth"></select>
+            </div>
+        </div>
+        <button type="button" id="btnPreview" class="btn">Generate Preview</button>
+        <button type="button" id="btnPdf" class="btn btn-outline">Download PDF</button>
+    </div>
+    <div id="pnlResult" class="card" hidden>
+        <h2 id="litTitle"></h2>
+        <p class="sub" id="litSubtitle"></p>
+        <div id="litNotes"></div>
+        <div class="grid-wrap" id="gvPreview"></div>
+    </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-reports.js"></script>
+</body>
+</html>

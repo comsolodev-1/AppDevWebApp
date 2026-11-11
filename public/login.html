@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign In - Bantay Barangay</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body>
+    <form id="form1" autocomplete="off">
+        <div class="login-wrap">
+            <div class="login-card">
+                <div class="logos">
+                    <img src="/Content/dilg-logo.png" alt="DILG" />
+                    <img src="/Content/talisay-logo.png" alt="Talisay" />
+                </div>
+                <h1>Bantay Barangay</h1>
+                <p class="sub">DILG Municipal Office of Talisay, Camarines Norte</p>
+                <div id="litMessage"></div>
+                <div class="field">
+                    <label for="txtUsername">Username</label>
+                    <input type="text" id="txtUsername" maxlength="50" autocomplete="username" />
+                </div>
+                <div class="field" style="margin-top:10px">
+                    <label for="txtPassword">Password</label>
+                    <input type="password" id="txtPassword" maxlength="100" autocomplete="current-password" />
+                </div>
+                <div class="hp" aria-hidden="true">
+                    <input type="text" id="txtWebsite" tabindex="-1" autocomplete="off" />
+                </div>
+                <div style="margin-top:16px">
+                    <button type="submit" id="btnLogin" class="btn" style="width:100%">Sign In</button>
+                </div>
+                <p class="sub" style="margin-top:14px"><a href="/index.html">Continue as viewer (no login)</a></p>
+            </div>
+        </div>
+    </form>
+<script src="/js/common.js"></script>
+<script src="/js/pages/login.js"></script>
+</body>
+</html>

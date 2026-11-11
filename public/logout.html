@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><title>Signing out</title></head>
+<body>
+<script>
+fetch('/api/session', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (s) {
+  return fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': s.csrf } });
+}).then(function () { window.location.href = '/login.html'; });
+</script>
+</body>
+</html>

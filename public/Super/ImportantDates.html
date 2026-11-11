@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Important Dates</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <div class="panel-title">
+        <div>
+            <h1>Important Dates</h1>
+            <p class="sub">Meetings, holidays, deadlines and events shown on the calendar.</p>
+        </div>
+        <button type="button" id="btnNew" class="btn">+ Add Date</button>
+    </div>
+    <div id="litMessage"></div>
+
+    <div id="pnlForm" class="card" hidden>
+        <h2 id="litFormTitle"></h2>
+        <input type="hidden" id="hfId" value="0" />
+        <div class="row">
+            <div class="field wide"><label>Title *</label><input type="text" id="txtTitle" maxlength="150" /></div>
+            <div class="field">
+                <label>Type</label>
+                <select id="ddlType">
+                    <option>Meeting</option>
+                    <option>Deadline</option>
+                    <option>Holiday</option>
+                    <option>Event</option>
+                    <option>Training</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field wide"><label>Description</label><textarea id="txtDescription" rows="3"></textarea></div>
+        </div>
+        <div class="row">
+            <div class="field"><label>Date *</label><input type="date" id="txtDate" /></div>
+            <div class="field"><label>Start time</label><input type="time" id="txtStart" /></div>
+            <div class="field"><label>End time</label><input type="time" id="txtEnd" /></div>
+            <div class="field wide"><label>Location</label><input type="text" id="txtLocation" maxlength="255" /></div>
+        </div>
+        <div class="row">
+            <div class="field">
+                <label>Visible to</label>
+                <select id="ddlVisibility">
+                    <option value="All">Everyone (public)</option>
+                    <option value="Specific Role">Specific role</option>
+                    <option value="Specific Barangay">Specific barangay</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Target role</label>
+                <select id="ddlRole"></select>
+            </div>
+            <div class="field">
+                <label>Target barangay</label>
+                <select id="ddlTargetBarangay"></select>
+            </div>
+            <div class="field"><label>Reminder date (optional)</label><input type="date" id="txtReminder" /></div>
+        </div>
+        <button type="button" id="btnSave" class="btn">Save</button>
+        <button type="button" id="btnCancel" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div class="grid-wrap" id="gvDates"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-importantdates.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <h1>Barangay Report Monitoring</h1>
+    <p class="sub">Public view of reporting activities, rankings and announcements for the 15 barangays of Talisay, Camarines Norte.</p>
+    <div id="litStats"></div>
+    <div class="card">
+        <h2>Top Ranking Barangays</h2>
+        <div class="grid-wrap" id="gvTop"></div>
+        <a href="/Viewer/Rankings.html">View full rankings</a>
+    </div>
+    <div class="card">
+        <h2>Reporting Activities</h2>
+        <div class="grid-wrap" id="gvActivities"></div>
+    </div>
+    <div class="card">
+        <h2>Upcoming Important Dates</h2>
+        <div class="grid-wrap" id="gvDates"></div>
+    </div>
+    <h2>Latest Announcements</h2>
+    <div id="annLatest"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/public-dashboard.js"></script>
+</body>
+</html>

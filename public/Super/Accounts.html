@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accounts</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body class="boot">
+<div id="page">
+    <div class="panel-title">
+        <div>
+            <h1>Accounts</h1>
+            <p class="sub">Create and manage Barangay Admin accounts. Each barangay has one admin account.</p>
+        </div>
+        <button type="button" id="btnNew" class="btn">+ New Account</button>
+    </div>
+    <div id="litMessage"></div>
+
+    <div id="pnlForm" class="card" hidden>
+        <h2>Create Barangay Admin Account</h2>
+        <div class="row">
+            <div class="field">
+                <label>Barangay *</label>
+                <select id="ddlBarangay"></select>
+            </div>
+            <div class="field"><label>Username *</label><input type="text" id="txtUsername" maxlength="50" autocomplete="off" /></div>
+            <div class="field"><label>Initial password *</label><input type="password" id="txtPassword" maxlength="100" autocomplete="new-password" /></div>
+        </div>
+        <div class="row">
+            <div class="field"><label>First name *</label><input type="text" id="txtFirst" maxlength="50" /></div>
+            <div class="field"><label>Middle name</label><input type="text" id="txtMiddle" maxlength="50" /></div>
+            <div class="field"><label>Last name *</label><input type="text" id="txtLast" maxlength="50" /></div>
+            <div class="field"><label>Suffix</label><input type="text" id="txtSuffix" maxlength="10" /></div>
+            <div class="field"><label>Contact number</label><input type="text" id="txtContact" maxlength="15" /></div>
+        </div>
+        <button type="button" id="btnSave" class="btn">Create Account</button>
+        <button type="button" id="btnCancel" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div id="pnlReset" class="card" hidden>
+        <h2>Reset Password</h2>
+        <input type="hidden" id="hfResetUserId" value="0" />
+        <div id="litResetInfo"></div>
+        <div class="row">
+            <div class="field"><label>New password *</label><input type="password" id="txtResetPassword" maxlength="100" autocomplete="new-password" /></div>
+        </div>
+        <button type="button" id="btnReset" class="btn">Set Password</button>
+        <button type="button" id="btnCancelReset" class="btn btn-outline">Cancel</button>
+    </div>
+
+    <div class="grid-wrap" id="gvUsers"></div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/pages/super-accounts.js"></script>
+</body>
+</html>
