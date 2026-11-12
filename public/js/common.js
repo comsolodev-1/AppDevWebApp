@@ -6,7 +6,35 @@
 
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var SHORT = MONTHS.map(function (m) { return m.slice(0, 3); });
-  var BB = window.BB = { csrf: '', user: null, MONTHS: MONTHS };
+  var BB = window.BB = { user: null, MONTHS: MONTHS };
+
+  /* ---------------- Session token (no cookies) ----------------
+     The server gives the browser a signed token; the browser keeps it in localStorage and sends it in the
+     Authorization header. Every response carries a refreshed token (sliding 20 minute timeout). */
+  var TOKEN_KEY = 'bb.token';
+  function getToken() { try { return window.localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function storeToken(res) {
+    var t = res.headers.get('x-session-token');
+    if (t === null) return;
+    try {
+      if (t === '') window.localStorage.removeItem(TOKEN_KEY);
+      else window.localStorage.setItem(TOKEN_KEY, t);
+    } catch (e) { /* storage blocked */ }
+  }
+  BB.clearToken = function () { try { window.localStorage.removeItem(TOKEN_KEY); } catch (e) { /* ignore */ } };
+  function authHeaders(extra) {
+    var h = extra || {};
+    var t = getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+  }
+  // fetch that sends the token and keeps it fresh
+  BB.fetch = function (url, opts) {
+    opts = opts || {};
+    opts.headers = authHeaders(opts.headers);
+    opts.cache = 'no-store';
+    return fetch(url, opts).then(function (res) { storeToken(res); return res; });
+  };
 
   /* ---------------- Ui.vb ---------------- */
   BB.H = function (value) {
@@ -116,14 +144,14 @@
 
   /* ---------------- API ---------------- */
   BB.api = function (method, url, body) {
-    var opts = { method: method, credentials: 'same-origin', headers: { 'X-CSRF-Token': BB.csrf } };
+    var opts = { method: method, headers: {} };
     if (body instanceof FormData) {
       opts.body = body;
     } else if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
-    return fetch(url, opts).then(function (res) {
+    return BB.fetch(url, opts).then(function (res) {
       return res.text().then(function (text) {
         var data = {};
         try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
@@ -150,20 +178,27 @@
     return Object.keys(obj).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(obj[k]); }).join('&');
   };
 
-  // Download a generated file (PDF) and show the error in the page if it fails
+  // Download a file through the API (sends the token) and save it; shows an error in the page if it fails
   BB.downloadFile = function (url, fileName) {
-    return fetch(url, { credentials: 'same-origin' }).then(function (res) {
+    return BB.fetch(url).then(function (res) {
       if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (data) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = JSON.parse(text); } catch (e) { data = {}; }
           if (res.status === 401 && data.expired) { window.location.href = '/login.html?expired=1'; return new Promise(function () {}); }
           if (res.status >= 500) { window.location.href = '/error.html'; return new Promise(function () {}); }
-          throw new Error(data.error || 'The file could not be created.');
+          throw new Error(data.error || 'File not found.');
         });
       }
+      var name = fileName;
+      var cd = res.headers.get('content-disposition') || '';
+      var star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+      var plain = /filename="([^"]+)"/i.exec(cd);
+      if (star) { try { name = decodeURIComponent(star[1]); } catch (e) { /* keep */ } } else if (plain && !fileName) { name = plain[1]; }
       return res.blob().then(function (blob) {
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = fileName;
+        a.download = name || 'download';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -171,6 +206,14 @@
       });
     });
   };
+
+  // Links to /download cannot carry the token, so they are fetched with the token and saved by script
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a[href^="/download"]') : null;
+    if (!a) return;
+    e.preventDefault();
+    BB.downloadFile(a.getAttribute('href'), '').catch(function (err) { window.alert(err.message); });
+  });
 
   /* ---------------- Page startup + master pages ---------------- */
   var SUPER = 'Super Admin';
@@ -215,7 +258,7 @@
     }
     document.getElementById('btnSignOut').addEventListener('click', function (e) {
       e.preventDefault();
-      BB.post('/api/logout').then(function () { window.location.href = '/login.html'; });
+      BB.post('/api/logout').then(function () { BB.clearToken(); window.location.href = '/login.html'; });
     });
   }
 
@@ -241,15 +284,15 @@
   // options: { layout: 'site' | 'public' | 'bare', role: 'Super Admin' | 'Barangay Admin' }
   BB.page = function (options, ready) {
     document.addEventListener('DOMContentLoaded', function () {
-      fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' })
+      BB.fetch('/api/session')
         .then(function (res) { return res.json(); })
         .then(function (info) {
-          BB.csrf = info.csrf;
           BB.user = info.user;
           BB.home = info.home;
           if (options.role && (!info.loggedIn || info.user.role !== options.role)) {
-            return fetch('/api/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': BB.csrf } })
-              .then(function () { window.location.href = '/login.html?expired=1'; });
+            // not allowed on this page: sign out and go to the login page
+            return BB.fetch('/api/logout', { method: 'POST' })
+              .then(function () { BB.clearToken(); window.location.href = '/login.html?expired=1'; });
           }
           var page = document.getElementById('page');
           if (options.layout === 'site') buildSiteLayout(info.user, page);

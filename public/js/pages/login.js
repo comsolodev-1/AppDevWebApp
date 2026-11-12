@@ -1,7 +1,6 @@
 (function () {
   document.addEventListener('DOMContentLoaded', function () {
-    fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (info) {
-      BB.csrf = info.csrf;
+    BB.fetch('/api/session').then(function (r) { return r.json(); }).then(function (info) {
       if (info.loggedIn) { window.location.href = info.home; return; }
       if (/[?&]expired=1/.test(window.location.search)) BB.notice('litMessage', 'Please sign in to continue.', false);
     });

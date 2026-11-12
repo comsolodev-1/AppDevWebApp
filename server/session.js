@@ -1,24 +1,14 @@
 'use strict';
-// Stateless session (serverless workaround): the session lives in a signed, HttpOnly cookie
-// instead of server memory, because every serverless call may run on a different instance.
-// Sliding 20 minute timeout, same as before. req.session behaves like the old Session object.
+// Cookie-free, stateless session (serverless workaround).
+// The browser keeps a signed token and sends it in the Authorization header; the server answers every
+// request with a refreshed token in the X-Session-Token header (sliding 20 minute timeout).
+// req.session behaves like the old Session object.
 const crypto = require('crypto');
 const onHeaders = require('on-headers');
 const config = require('./config');
 
-const NAME = 'bantay.sid';
-
 function sign(text) {
   return crypto.createHmac('sha256', config.sessionSecret).update(text).digest('base64url');
-}
-
-function parseCookies(header) {
-  const out = {};
-  String(header || '').split(';').forEach((part) => {
-    const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
-  });
-  return out;
 }
 
 function safeEqual(a, b) {
@@ -28,7 +18,8 @@ function safeEqual(a, b) {
 }
 
 function middleware(req, res, next) {
-  const raw = parseCookies(req.headers.cookie)[NAME];
+  const header = String(req.headers.authorization || '');
+  const raw = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   let data = {};
   if (raw) {
     const dot = raw.lastIndexOf('.');
@@ -47,14 +38,13 @@ function middleware(req, res, next) {
   req.session = data;
 
   onHeaders(res, () => {
-    const flags = '; Path=/; HttpOnly; SameSite=Lax' + (config.requireSsl ? '; Secure' : '');
+    res.setHeader('Cache-Control', res.getHeader('Cache-Control') || 'no-store');
     if (destroyed || Object.keys(data).length === 0) {
-      if (raw) res.append('Set-Cookie', NAME + '=; Max-Age=0' + flags);
+      if (raw) res.setHeader('X-Session-Token', '');     // tells the browser to forget the token
       return;
     }
-    const maxAge = config.sessionMinutes * 60;
-    const body = Buffer.from(JSON.stringify({ d: data, exp: Date.now() + maxAge * 1000 }), 'utf8').toString('base64url');
-    res.append('Set-Cookie', NAME + '=' + body + '.' + sign(body) + '; Max-Age=' + maxAge + flags);
+    const body = Buffer.from(JSON.stringify({ d: data, exp: Date.now() + config.sessionMinutes * 60 * 1000 }), 'utf8').toString('base64url');
+    res.setHeader('X-Session-Token', body + '.' + sign(body));
   });
   next();
 }

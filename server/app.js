@@ -23,7 +23,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Session: signed HttpOnly cookie, 20 minute sliding timeout (stateless, see server/session.js)
+// Session: signed token in the Authorization header (no cookies), 20 minute sliding timeout - see server/session.js
 app.use(session);
 
 app.use(express.json({ limit: '200kb' }));
@@ -38,31 +38,6 @@ app.use('/api', async (req, res, next) => {
   }
   next();
 });
-
-// CSRF protection: every state-changing request must carry the token tied to the session
-app.use('/api', (req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-  const token = req.get('x-csrf-token');
-  if (!req.session || !req.session.csrf || !token || token !== req.session.csrf) {
-    return res.status(403).json({ error: 'Your session has expired. Please reload the page and try again.' });
-  }
-  next();
-});
-
-// Page-level role guard (was <authorization> in web.config + SuperPage / BarangayPage)
-function guardPages(requiredRole) {
-  return async (req, res, next) => {
-    if (!auth.isLoggedIn(req) || auth.role(req) !== requiredRole) {
-      await auth.signOut(req);
-      return res.redirect('/login.html?expired=1');
-    }
-    res.set('Cache-Control', 'no-store, no-cache');
-    next();
-  };
-}
-// The protected pages live in /pages (not in /public) so the guard always runs, also on Vercel
-app.use('/Super', guardPages(auth.SuperAdminRole), express.static(path.join(__dirname, '..', 'pages', 'Super'), { index: false, dotfiles: 'ignore' }));
-app.use('/Barangay', guardPages(auth.BarangayAdminRole), express.static(path.join(__dirname, '..', 'pages', 'Barangay'), { index: false, dotfiles: 'ignore' }));
 
 // API
 app.use('/api/account', require('./routes/account'));

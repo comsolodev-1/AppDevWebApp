@@ -26,19 +26,18 @@ A browser page cannot talk to the database directly (that would expose the datab
 ```
 BantayBarangay/
 |-- api/index.js            Vercel entry point (serverless function)
-|-- vercel.json             Routes /api, /download, /Super and /Barangay to the function
+|-- vercel.json             Routes /api and /download to the function
 |-- server.js               Local runner (npm start)
 |-- server/
-|   |-- app.js              Express app: headers, CSRF, page guards, routes
+|   |-- app.js              Express app: headers, housekeeping, routes
 |   |-- config.js           Settings from environment variables
 |   |-- db.js               PostgreSQL helper (was Db.vb)
-|   |-- session.js          Signed-cookie session (serverless workaround)
+|   |-- session.js          Signed-token session, no cookies (serverless workaround)
 |   |-- auth.js             Login, lockout, roles (was Auth.vb)
 |   |-- uploads.js          Upload validation + storage in the database (was Uploads.vb)
 |   |-- scoring.js, assignments.js, periodHelper.js, calendarData.js, reportBuilder.js, pdfExport.js, ui.js, util.js
 |   `-- routes/             public, account, barangay, super, download
-|-- public/                 Public files served directly: index, login, error, Viewer/, Content/, js/
-|-- pages/                  Protected pages (Super/, Barangay/) - served only after the role check
+|-- public/                 Everything the browser loads: index, login, error, Viewer/, Barangay/, Super/, Content/, js/
 `-- database/               schema.sql, seed.sql (PostgreSQL)
 ```
 
@@ -90,7 +89,9 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 
 | Before | Now |
 |---|---|
-| Session kept in server memory | Session kept in a signed, HttpOnly cookie (tamper-proof, 20 minute sliding timeout). Trade-off: after Sign Out or after an account is deactivated, an already-copied cookie stays valid until it expires (max 20 minutes). |
+| Session kept in server memory + cookie | **No cookies.** After login the server gives the browser a signed token. The page keeps it in `localStorage` and sends it in the `Authorization` header; every response refreshes it (20 minute sliding timeout). Trade-off: after Sign Out or after an account is deactivated, an already-copied token stays valid until it expires (max 20 minutes). |
+| Pages guarded by the server | Pages are plain static files. Each protected page checks the signed-in role when it loads and sends other users to Login; the API enforces the role on every request, so nobody can read data by opening a page they should not see. |
+| Downloads by plain link | Download links are fetched by script with the token and then saved (so private files stay protected) |
 | Login lockout counter in memory | Stored in the `login_attempts` table (5 failures lock a username + IP for 15 minutes) |
 | Uploaded files on disk (`App_Data`) | Stored in the `file_store` table; only `/download` can read them, with the same permission checks |
 | 10 MB upload limit | **4 MB**, because Vercel limits a request to about 4.5 MB |
@@ -102,19 +103,19 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 | SQL injection | Every query is parameterized (`server/db.js`) |
 | Weak passwords | BCrypt, minimum 8 characters with letters and numbers |
 | Brute force login | 5 failed attempts lock the account + IP for 15 minutes; honeypot field on login |
-| Forged sessions | Cookie is signed with `SESSION_SECRET`; any change is rejected |
-| CSRF | A per-session token is required on every POST / PUT / DELETE |
-| Reading another barangay's data | Role check on every protected page and API route; queries and downloads also filter by the user's barangay |
+| Forged sessions | The token is signed with `SESSION_SECRET`; any change is rejected |
+| CSRF | Not applicable: there are no cookies, and the token is only sent by the page's own script, never automatically by the browser |
+| Reading another barangay's data | Role check on every API route; queries and downloads also filter by the user's barangay |
 | Malicious uploads | Extension whitelist, 4 MB limit, file signature check, random keys, stored in the database, served only through `/download` |
-| XSS | All output is HTML-escaped (`BB.H`) |
+| XSS | All output is HTML-escaped (`BB.H`), which also protects the token stored in the browser |
 | Clickjacking / sniffing | `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` headers |
 | Secrets | Database password and session secret live only in environment variables |
 
 ## Testing
 
 Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.sql`:
-- 66 automated API checks: logins (case-insensitive), lockout, CSRF, role guards (including a Barangay Admin opening Super pages), upload rejection (fake PDF, `.exe`, 5 MB file), cross-barangay download blocked, submit / late / confirm / deny / resubmit, scoring, ranking ties, announcement visibility, calendar, accounts, periods, archive-on-delete, and all 10 reports as preview and valid PDF.
-- A login cookie keeps working after a server restart, and tampered or forged cookies are rejected.
+- 64 automated API checks: logins (case-insensitive), lockout, role guards (including a Barangay Admin opening Super pages), upload rejection (fake PDF, `.exe`, 5 MB file), cross-barangay download blocked, submit / late / confirm / deny / resubmit, scoring, ranking ties, announcement visibility, calendar, accounts, periods, archive-on-delete, and all 10 reports as preview and valid PDF.
+- The login token keeps working after a server restart, tampered or forged tokens are rejected, and no cookie is ever set.
 - Every HTML page loaded in a simulated browser for all three roles with no script errors.
 
 **Not yet verified on Vercel itself.** After the first deployment, run the checklist below. If `/Super/...` or `/download` ever shows a 404 or a Vercel error page, check the Functions log and `vercel.json`.
@@ -122,7 +123,7 @@ Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.
 | # | Test | Expected result |
 |---|---|---|
 | 1 | Open `/` without logging in | Public dashboard, no admin links |
-| 2 | Open `/Super/Dashboard.html` while logged out | Redirected to Login |
+| 2 | Open `/Super/Dashboard.html` while logged out | Sent to Login, no data shown |
 | 3 | Log in as a Barangay Admin, then open `/Super/Dashboard.html` | Signed out and sent to Login |
 | 4 | Wrong password 5 times | Account locked message for 15 minutes |
 | 5 | Super Admin creates an activity for 3 barangays | Only those 3 see it |
@@ -145,6 +146,7 @@ Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.
 |---|---|
 | Pages work but data/login fails | Check `DATABASE_URL` in Vercel, that `schema.sql` and `seed.sql` were run in Neon, and the function logs |
 | Everyone gets signed out | `SESSION_SECRET` changed or the 20 minute timeout passed |
+| Signed in on one browser but not another | The login is stored per browser (localStorage); sign in again there |
 | First request after idle is slow | Neon and Vercel wake up from sleep; normal on free tiers |
 | Upload rejected as too large | The limit is 4 MB on Vercel |
 | Deadlines off by hours | Times use Asia/Manila; check the deadline date you entered |

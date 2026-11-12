@@ -1,14 +1,12 @@
 {
   "functions": {
     "api/index.js": {
-      "includeFiles": "{pages/**,node_modules/pdfkit/js/data/**}",
+      "includeFiles": "node_modules/pdfkit/js/data/**",
       "maxDuration": 30
     }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" },
-    { "source": "/download", "destination": "/api/index.js" },
-    { "source": "/Super/:path*", "destination": "/api/index.js" },
-    { "source": "/Barangay/:path*", "destination": "/api/index.js" }
+    { "source": "/download", "destination": "/api/index.js" }
   ]
 }

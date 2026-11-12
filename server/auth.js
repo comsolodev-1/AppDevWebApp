@@ -1,6 +1,5 @@
 'use strict';
 // Port of App_Code/Auth.vb - sign in, lockout, session values, role guards.
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
 
@@ -40,10 +39,6 @@ const fullName = (req) => (req.session && req.session.fullName) || '';
 const barangayName = (req) => (req.session && req.session.barangayName) || '';
 const isSuperAdmin = (req) => role(req) === SuperAdminRole;
 
-function newCsrfToken() {
-  return crypto.randomBytes(24).toString('hex');
-}
-
 // Returns { ok, message }
 async function signIn(req, username, password) {
   username = (username || '').trim();
@@ -78,7 +73,6 @@ async function signIn(req, username, password) {
 
   await db.execute('DELETE FROM login_attempts WHERE attempt_key = @k', '@k', key);
   await new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
-  req.session.csrf = newCsrfToken();
   req.session.userId = Number(row.user_id);
   req.session.roleId = Number(row.role_id);
   req.session.role = row.role_name;
@@ -116,7 +110,7 @@ function requireRole(requiredRole) {
 
 module.exports = {
   SuperAdminRole, BarangayAdminRole,
-  hashPassword, passwordIsStrong, newCsrfToken,
+  hashPassword, passwordIsStrong,
   isLoggedIn, userId, role, roleId, barangayCode, fullName, barangayName, isSuperAdmin,
   signIn, signOut, homeUrl, requireRole, bcrypt
 };

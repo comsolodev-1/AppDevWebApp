@@ -10,12 +10,9 @@ const { wrap, toInt } = require('../util');
 
 const router = express.Router();
 
-// Session info + CSRF token (the equivalent of ViewStateUserKey tied to the session)
+// Who is signed in (the browser sends its token in the Authorization header)
 router.get('/session', (req, res) => {
-  if (!req.session.csrf) req.session.csrf = auth.newCsrfToken();
-  res.set('Cache-Control', 'no-store');
   res.json({
-    csrf: req.session.csrf,
     loggedIn: auth.isLoggedIn(req),
     user: auth.isLoggedIn(req) ? {
       userId: auth.userId(req), role: auth.role(req), roleId: auth.roleId(req),
@@ -37,7 +34,7 @@ router.post('/login', wrap(async (req, res) => {
   }
   const result = await auth.signIn(req, String(body.username), String(body.password));
   if (!result.ok) return res.status(400).json({ error: result.message });
-  res.json({ ok: true, csrf: req.session.csrf, home: auth.homeUrl(req) });
+  res.json({ ok: true, home: auth.homeUrl(req) });
 }));
 
 router.post('/logout', wrap(async (req, res) => {
