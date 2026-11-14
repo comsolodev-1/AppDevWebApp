@@ -2,7 +2,7 @@
   "framework": null,
   "outputDirectory": "public",
   "functions": {
-    "api/[...path].js": {
+    "api/**/*.js": {
       "includeFiles": "node_modules/pdfkit/js/data/**",
       "maxDuration": 30
     }

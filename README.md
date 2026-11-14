@@ -25,8 +25,8 @@ A browser page cannot talk to the database directly (that would expose the datab
 
 ```
 BantayBarangay/
-|-- api/[...path].js        Vercel entry point (serverless function for every /api request)
-|-- vercel.json             Catch-all function for /api (including downloads)
+|-- api/[s1]...[s4].js      Vercel entry points: one tiny file per URL depth (1 to 4 segments), all handled by server/vercelHandler.js
+|-- vercel.json             Function settings (PDF fonts, time limit)
 |-- local.js                Local runner (npm start)
 |-- server/
 |   |-- app.js              Express app: headers, housekeeping, routes
@@ -147,6 +147,7 @@ Open `/diagnose.html` on your site first. It checks the server, the database (an
 
 | Problem | Fix |
 |---|---|
+| `/diagnose.html` shows 404 `NOT_FOUND` for URLs with two or more parts (like `/api/super/meta`) | The `api/` folder must contain `[s1].js` and the nested `[s1]/[s2].js`, `[s1]/[s2]/[s3].js`, `[s1]/[s2]/[s3]/[s4].js` files exactly as shipped (and no other file such as `[...path].js`). Redeploy and clear the build cache. |
 | Dropdowns or tables stay empty |  Read the red message at the top of the page, or open `/diagnose.html`. `barangays: 0` in the health check means `seed.sql` was not run in Neon. |
 | Pages work but data/login fails | Check `DATABASE_URL` in Vercel, that `schema.sql` and `seed.sql` were run in Neon, and the function logs |
 | Everyone gets signed out | `SESSION_SECRET` changed or the 20 minute timeout passed |
