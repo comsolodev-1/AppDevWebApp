@@ -91,6 +91,7 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 |---|---|
 | Session kept in server memory + cookie | **No cookies.** After login the server gives the browser a signed token. The page keeps it in `localStorage` and sends it in the `Authorization` header; every response refreshes it (20 minute sliding timeout). Trade-off: after Sign Out or after an account is deactivated, an already-copied token stays valid until it expires (max 20 minutes). |
 | Pages guarded by the server | Pages are plain static files. Each protected page checks the signed-in role when it loads and sends other users to Login; the API enforces the role on every request, so nobody can read data by opening a page they should not see. |
+| Every click loads a new page | The sidebar / top bar are built once; clicking a menu link swaps only the content area (no full reload) with working Back / Forward. Menu pages are preloaded and lists such as barangays are cached, so navigation feels instant. If anything goes wrong it falls back to a normal page load. |
 | Downloads by plain link | Download links are fetched by script with the token and then saved (so private files stay protected) |
 | Login lockout counter in memory | Stored in the `login_attempts` table (5 failures lock a username + IP for 15 minutes) |
 | Uploaded files on disk (`App_Data`) | Stored in the `file_store` table; only `/api/download` can read them, with the same permission checks |
@@ -116,7 +117,7 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.sql`:
 - 64 automated API checks: logins (case-insensitive), lockout, role guards (including a Barangay Admin opening Super pages), upload rejection (fake PDF, `.exe`, 5 MB file), cross-barangay download blocked, submit / late / confirm / deny / resubmit, scoring, ranking ties, announcement visibility, calendar, accounts, periods, archive-on-delete, and all 10 reports as preview and valid PDF.
 - The login token keeps working after a server restart, tampered or forged tokens are rejected, and no cookie is ever set.
-- Every HTML page loaded in a simulated browser for all three roles with no script errors.
+- Every HTML page loaded in a simulated browser for all three roles with no script errors, and in-place navigation (menu clicks, Back / Forward, active menu item, page title) checked for all three roles.
 
 **Not yet verified on Vercel itself.** After the first deployment, run the checklist below. If `/Super/...` or `/api/download` ever shows a 404 or a Vercel error page, check the Functions log and `vercel.json`.
 

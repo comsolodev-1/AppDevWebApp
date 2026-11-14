@@ -54,7 +54,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
   });
   BB.$('btnCancelReview').addEventListener('click', function () { BB.show('pnlReview', false); });
 
-  BB.get('/api/super/meta').then(function (m) {
+  BB.meta().then(function (m) {
     BB.fillSelect('ddlBarangay', m.allBarangays, 'barangay_name', 'barangay_code', { value: '', text: 'All barangays' });
     bindGrid();
   });

@@ -98,9 +98,10 @@
     if (el) el.hidden = !visible;
   };
 
-  BB.fillSelect = function (select, rows, textField, valueField, firstOption) {
+  BB.fillSelect = function (select, rows, textField, valueField, firstOption, emptyText) {
     if (typeof select === 'string') select = document.getElementById(select);
     var html = firstOption ? '<option value="' + BB.H(firstOption.value) + '">' + BB.H(firstOption.text) + '</option>' : '';
+    if (rows.length === 0 && emptyText) html += '<option value="">' + BB.H(emptyText) + '</option>';
     rows.forEach(function (r) {
       html += '<option value="' + BB.H(r[valueField]) + '">' + BB.H(r[textField]) + '</option>';
     });
@@ -219,8 +220,26 @@
   var SUPER = 'Super Admin';
   var BARANGAY = 'Barangay Admin';
 
-  function pathEndsWith(file) {
-    return window.location.pathname.toLowerCase().slice(-(file.length + 1)) === '/' + file.toLowerCase();
+  /* The layout (sidebar / top bar / public bar) is built once. After that, clicking a link swaps only the
+     content area (no full page reload): the target page is fetched, its #page markup is shown, the URL and
+     history are updated, and that page's script runs. Anything unusual falls back to a normal page load. */
+  var shell = null;          // { layout, container, title } once the layout is on screen
+  var registered = null;     // { options, ready } registered by the page script via BB.page
+  var pageCache = {};        // path -> Promise of { title, html, script }
+  var navToken = 0;
+  var dynScript = null;
+
+  function normalize(path) {
+    path = String(path).split('#')[0].split('?')[0];
+    return path === '/' ? '/index.html' : path;
+  }
+  function samePath(a, b) { return normalize(a).toLowerCase() === normalize(b).toLowerCase(); }
+
+  function refreshActive() {
+    var links = document.querySelectorAll('a[data-nav]');
+    for (var i = 0; i < links.length; i++) {
+      links[i].classList.toggle('active', samePath(links[i].getAttribute('href'), window.location.pathname));
+    }
   }
 
   function buildSiteLayout(user, page) {
@@ -235,9 +254,9 @@
         ['Rankings', 'Rankings.html'], ['Announcements', 'Announcements.html']);
     }
     var menu = items.map(function (it) {
-      return '<a href="' + folder + it[1] + '"' + (pathEndsWith(it[1]) ? ' class="active"' : '') + '>' + BB.H(it[0]) + '</a>';
+      return '<a href="' + folder + it[1] + '" data-nav>' + BB.H(it[0]) + '</a>';
     }).join('');
-    var settings = '<a href="' + folder + 'Settings.html"' + (pathEndsWith('Settings.html') ? ' class="active"' : '') + '>Settings</a>';
+    var settings = '<a href="' + folder + 'Settings.html" data-nav>Settings</a>';
     var today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     var wrap = document.createElement('div');
@@ -248,14 +267,11 @@
         '<nav>' + menu + '</nav>' +
         '<div class="foot">' + settings + '<a href="#" id="btnSignOut" class="linkbtn">Sign Out</a></div>' +
       '</aside>' +
-      '<div class="main"><div class="topbar"><span>' + BB.H(document.title) + '</span><span>' + BB.H(today) + '</span></div><div class="content"></div></div>';
-    while (wrap.firstChild) {
-      if (wrap.firstChild.className === 'main') {
-        var main = wrap.firstChild;
-        main.querySelector('.content').appendChild(page);
-      }
-      document.body.appendChild(wrap.firstChild);
-    }
+      '<div class="main"><div class="topbar"><span id="bbTitle">' + BB.H(document.title) + '</span><span>' + BB.H(today) + '</span></div><div class="content"></div></div>';
+    var content = wrap.querySelector('.content');
+    content.appendChild(page);
+    while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
+    shell = { layout: 'site', container: content, title: document.getElementById('bbTitle') };
     document.getElementById('btnSignOut').addEventListener('click', function (e) {
       e.preventDefault();
       BB.post('/api/logout').then(function () { BB.clearToken(); window.location.href = '/login.html'; });
@@ -265,10 +281,8 @@
   function buildPublicLayout(page) {
     var items = [['Dashboard', '/index.html'], ['Rankings', '/Viewer/Rankings.html'], ['Announcements', '/Viewer/Announcements.html'],
       ['Roster', '/Viewer/Roster.html'], ['Calendar', '/Viewer/Calendar.html']];
-    var current = window.location.pathname.toLowerCase();
-    if (current === '/') current = '/index.html';
     var nav = items.map(function (it) {
-      return '<a href="' + it[1] + '"' + (current === it[1].toLowerCase() ? ' class="active"' : '') + '>' + BB.H(it[0]) + '</a>';
+      return '<a href="' + it[1] + '" data-nav>' + BB.H(it[0]) + '</a>';
     }).join('') + '<a class="login" href="/login.html">Admin Login</a>';
 
     var bar = document.createElement('div');
@@ -279,32 +293,144 @@
     main.appendChild(page);
     document.body.appendChild(bar);
     document.body.appendChild(main);
+    shell = { layout: 'public', container: main, title: null };
   }
 
-  // options: { layout: 'site' | 'public' | 'bare', role: 'Super Admin' | 'Barangay Admin' }
-  BB.page = function (options, ready) {
-    document.addEventListener('DOMContentLoaded', function () {
-      BB.fetch('/api/session')
-        .then(function (res) { return res.json(); })
-        .then(function (info) {
-          BB.user = info.user;
-          BB.home = info.home;
-          if (options.role && (!info.loggedIn || info.user.role !== options.role)) {
-            // not allowed on this page: sign out and go to the login page
-            return BB.fetch('/api/logout', { method: 'POST' })
-              .then(function () { BB.clearToken(); window.location.href = '/login.html?expired=1'; });
-          }
-          var page = document.getElementById('page');
-          if (options.layout === 'site') buildSiteLayout(info.user, page);
-          else if (options.layout === 'public') buildPublicLayout(page);
-          document.body.classList.remove('boot');
-          return ready(info);
-        })
-        .catch(function (err) {
-          console.error(err);
-          window.location.href = '/error.html';
-        });
+  function shellAllows(path) {
+    if (!shell) return false;
+    if (shell.layout === 'site') {
+      var folder = BB.user && BB.user.role === SUPER ? '/Super/' : '/Barangay/';
+      return path.toLowerCase().indexOf(folder.toLowerCase()) === 0;
+    }
+    return samePath(path, '/index.html') || /^\/viewer\//i.test(path);
+  }
+
+  function startPage() {
+    var p = registered;
+    registered = null;
+    if (!p) return;
+    var info = { loggedIn: !!BB.user, user: BB.user, home: BB.home };
+    Promise.resolve().then(function () { return p.ready(info); }).catch(function (err) {
+      console.error(err);
+      window.location.href = '/error.html';
     });
+  }
+
+  function fetchPage(path) {
+    var key = normalize(path).toLowerCase();
+    if (!pageCache[key]) {
+      pageCache[key] = fetch(normalize(path)).then(function (res) {
+        if (!res.ok) throw new Error('not found');
+        return res.text();
+      }).then(function (text) {
+        var doc = new DOMParser().parseFromString(text, 'text/html');
+        var page = doc.getElementById('page');
+        var script = doc.querySelector('script[src^="/js/pages/"]');
+        if (!page || !script) throw new Error('not a page');
+        return { title: doc.title, html: page.innerHTML, script: script.getAttribute('src') };
+      }).catch(function (err) { delete pageCache[key]; throw err; });
+    }
+    return pageCache[key];
+  }
+
+  function navigate(path, push) {
+    var token = ++navToken;
+    fetchPage(path).then(function (p) {
+      if (token !== navToken) return;
+      document.title = p.title;
+      if (shell.title) shell.title.textContent = p.title;
+      shell.container.innerHTML = '';
+      var div = document.createElement('div');
+      div.id = 'page';
+      div.innerHTML = p.html;
+      shell.container.appendChild(div);
+      window.scrollTo(0, 0);
+      var target = normalize(path);
+      if (push) window.history.pushState({}, '', target);
+      else if (!samePath(target, window.location.pathname)) window.history.replaceState({}, '', target);
+      refreshActive();
+      registered = null;
+      if (dynScript && dynScript.parentNode) dynScript.parentNode.removeChild(dynScript);
+      dynScript = document.createElement('script');
+      dynScript.src = p.script;
+      dynScript.onload = function () {
+        if (token !== navToken) return;
+        var reg = registered;
+        // wrong layout or wrong role for this page: a normal page load handles the sign-out / redirect
+        if (!reg || reg.options.layout !== shell.layout || (reg.options.role && (!BB.user || BB.user.role !== reg.options.role))) {
+          window.location.href = path;
+          return;
+        }
+        startPage();
+      };
+      dynScript.onerror = function () { window.location.href = path; };
+      document.body.appendChild(dynScript);
+    }).catch(function () { window.location.href = path; });
+  }
+
+  // Links inside the shell: swap the content instead of reloading the page
+  document.addEventListener('click', function (e) {
+    if (!shell || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    var href = a.getAttribute('href');
+    if (!href || href.charAt(0) === '#') return;
+    var url;
+    try { url = new URL(a.href, window.location.href); } catch (err) { return; }
+    if (url.origin !== window.location.origin) return;
+    if (!/\.html$/i.test(url.pathname) && url.pathname !== '/') return;
+    if (!shellAllows(url.pathname)) return;
+    e.preventDefault();
+    navigate(url.pathname, !samePath(url.pathname, window.location.pathname));
+  });
+
+  window.addEventListener('popstate', function () {
+    if (shell && shellAllows(window.location.pathname)) navigate(window.location.pathname, false);
+    else window.location.reload();
+  });
+
+  // Called by every page script. options: { layout: 'site' | 'public', role: 'Super Admin' | 'Barangay Admin' }
+  BB.page = function (options, ready) {
+    registered = { options: options, ready: ready };
+  };
+
+  // First load of any page: check the session, build the layout once, start the page
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!registered) return;
+    var options = registered.options;
+    BB.fetch('/api/session')
+      .then(function (res) { return res.json(); })
+      .then(function (info) {
+        BB.user = info.user;
+        BB.home = info.home;
+        if (options.role && (!info.loggedIn || info.user.role !== options.role)) {
+          // not allowed on this page: sign out and go to the login page
+          return BB.fetch('/api/logout', { method: 'POST' })
+            .then(function () { BB.clearToken(); window.location.href = '/login.html?expired=1'; });
+        }
+        var page = document.getElementById('page');
+        if (options.layout === 'site') buildSiteLayout(info.user, page);
+        else if (options.layout === 'public') buildPublicLayout(page);
+        refreshActive();
+        document.body.classList.remove('boot');
+        startPage();
+        // load the other pages of the menu in the background so clicking them feels instant
+        setTimeout(function () {
+          var links = document.querySelectorAll('a[data-nav]');
+          for (var i = 0; i < links.length; i++) fetchPage(links[i].getAttribute('href')).catch(function () {});
+        }, 600);
+      })
+      .catch(function (err) {
+        console.error(err);
+        window.location.href = '/error.html';
+      });
+  });
+
+  // Lists that never change during a visit (barangays, roles, report types) are loaded once
+  var metaPromise = null;
+  BB.meta = function () {
+    if (!metaPromise) metaPromise = BB.get('/api/super/meta').catch(function (err) { metaPromise = null; throw err; });
+    return metaPromise;
   };
 
   // run an async action and show its error as a notice (try/catch of the original code-behind)

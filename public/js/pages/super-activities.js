@@ -122,7 +122,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
     }
   });
 
-  BB.get('/api/super/meta').then(function (m) {
+  BB.meta().then(function (m) {
     meta = m;
     BB.$('ddlFrequency').innerHTML = m.frequencies.map(function (f) { return '<option>' + BB.H(f) + '</option>'; }).join('');
     // CheckBoxList with RepeatLayout=Table, RepeatColumns=3

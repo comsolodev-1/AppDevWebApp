@@ -68,7 +68,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
       });
     }
   });
-  BB.get('/api/super/meta').then(function (m) {
+  BB.meta().then(function (m) {
     BB.fillSelect('ddlRole', m.roles, 'role_name', 'role_id');
     BB.fillSelect('ddlTargetBarangay', m.barangays, 'barangay_name', 'barangay_code');
     bindGrid();

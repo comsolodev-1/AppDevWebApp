@@ -5,9 +5,9 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
 
   function bindPeriods() {
     ddlPeriod.innerHTML = '';
-    if (ddlActivity.options.length === 0) return Promise.resolve();
+    if (!ddlActivity.value) { BB.fillSelect(ddlPeriod, [], 'period_name', 'period_id', null, 'No periods yet'); return Promise.resolve(); }
     return BB.get('/api/super/reports/periods?activity=' + ddlActivity.value).then(function (d) {
-      BB.fillSelect(ddlPeriod, d.rows, 'period_name', 'period_id');
+      BB.fillSelect(ddlPeriod, d.rows, 'period_name', 'period_id', null, 'No periods yet');
     });
   }
 
@@ -30,7 +30,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
     if (isSummary) {
       var frequency = key === 'weekly' ? 'Weekly' : key === 'monthly' ? 'Monthly' : 'Quarterly';
       return BB.get('/api/super/reports/activities?frequency=' + frequency).then(function (d) {
-        BB.fillSelect(ddlActivity, d.rows, 'activity_name', 'activity_id');
+        BB.fillSelect(ddlActivity, d.rows, 'activity_name', 'activity_id', null, 'No activities of this frequency yet');
         return bindPeriods();
       });
     }
@@ -61,7 +61,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
     BB.run('litMessage', function () { return BB.downloadFile('/api/super/reports/pdf?' + params(), ddlReport.value + '-report.pdf'); });
   });
 
-  BB.get('/api/super/meta').then(function (m) {
+  BB.meta().then(function (m) {
     meta = m;
     BB.fillSelect(ddlReport, m.reports, 'label', 'key');
     BB.fillYears(ddlYear);
