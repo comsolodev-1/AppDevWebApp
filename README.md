@@ -25,9 +25,9 @@ A browser page cannot talk to the database directly (that would expose the datab
 
 ```
 BantayBarangay/
-|-- api/index.js            Vercel entry point (serverless function)
-|-- vercel.json             Routes /api and /download to the function
-|-- server.js               Local runner (npm start)
+|-- api/[...path].js        Vercel entry point (serverless function for every /api request)
+|-- vercel.json             Catch-all function for /api (including downloads)
+|-- local.js                Local runner (npm start)
 |-- server/
 |   |-- app.js              Express app: headers, housekeeping, routes
 |   |-- config.js           Settings from environment variables
@@ -56,7 +56,7 @@ Requirements: Node.js 18+ and PostgreSQL 14+.
 
 1. **Database (Neon).** Create a free project at neon.tech. Open the SQL Editor, paste and run `database/schema.sql`, then `database/seed.sql`. Copy the connection string (it looks like `postgres://...neon.tech/neondb?sslmode=require`; the pooled one is best).
 2. **Code.** Push this folder to a GitHub repository.
-3. **Vercel.** Import the repository at vercel.com (Framework Preset: **Other**, no build command). Add two environment variables:
+3. **Vercel.** Import the repository at vercel.com (Framework Preset: **Other**, no build command, leave Output Directory as is). Add two environment variables:
    - `DATABASE_URL` = the Neon connection string
    - `SESSION_SECRET` = a long random text (keep it private; changing it signs everyone out)
 4. Deploy, open the URL, and sign in as `superadmin`. **Change the default passwords** under Settings, then create or reset the barangay accounts.
@@ -93,7 +93,7 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 | Pages guarded by the server | Pages are plain static files. Each protected page checks the signed-in role when it loads and sends other users to Login; the API enforces the role on every request, so nobody can read data by opening a page they should not see. |
 | Downloads by plain link | Download links are fetched by script with the token and then saved (so private files stay protected) |
 | Login lockout counter in memory | Stored in the `login_attempts` table (5 failures lock a username + IP for 15 minutes) |
-| Uploaded files on disk (`App_Data`) | Stored in the `file_store` table; only `/download` can read them, with the same permission checks |
+| Uploaded files on disk (`App_Data`) | Stored in the `file_store` table; only `/api/download` can read them, with the same permission checks |
 | 10 MB upload limit | **4 MB**, because Vercel limits a request to about 4.5 MB |
 
 ## Security
@@ -106,7 +106,7 @@ Vercel runs the app as short-lived functions that share no memory and no disk, s
 | Forged sessions | The token is signed with `SESSION_SECRET`; any change is rejected |
 | CSRF | Not applicable: there are no cookies, and the token is only sent by the page's own script, never automatically by the browser |
 | Reading another barangay's data | Role check on every API route; queries and downloads also filter by the user's barangay |
-| Malicious uploads | Extension whitelist, 4 MB limit, file signature check, random keys, stored in the database, served only through `/download` |
+| Malicious uploads | Extension whitelist, 4 MB limit, file signature check, random keys, stored in the database, served only through `/api/download` |
 | XSS | All output is HTML-escaped (`BB.H`), which also protects the token stored in the browser |
 | Clickjacking / sniffing | `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` headers |
 | Secrets | Database password and session secret live only in environment variables |
@@ -118,7 +118,7 @@ Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.
 - The login token keeps working after a server restart, tampered or forged tokens are rejected, and no cookie is ever set.
 - Every HTML page loaded in a simulated browser for all three roles with no script errors.
 
-**Not yet verified on Vercel itself.** After the first deployment, run the checklist below. If `/Super/...` or `/download` ever shows a 404 or a Vercel error page, check the Functions log and `vercel.json`.
+**Not yet verified on Vercel itself.** After the first deployment, run the checklist below. If `/Super/...` or `/api/download` ever shows a 404 or a Vercel error page, check the Functions log and `vercel.json`.
 
 | # | Test | Expected result |
 |---|---|---|
@@ -134,7 +134,7 @@ Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.
 | 10 | Activity with a past deadline, then submit | Marked Late, 0.5 point when confirmed |
 | 11 | Super Admin denies with a reason | Barangay sees the reason and can Resubmit |
 | 12 | Barangay removes a Pending submission | Row deleted, can submit again |
-| 13 | Barangay A opens `/download?t=submission&id=` of Barangay B | File not found |
+| 13 | Barangay A opens `/api/download?t=submission&id=` of Barangay B | File not found |
 | 14 | Generate each of the 10 reports and download the PDF | PDF opens with title, filters and table |
 | 15 | Announcement for one barangay | Only that barangay (and Super Admin) sees it |
 | 16 | Calendar page, change month | Events show on the right days |

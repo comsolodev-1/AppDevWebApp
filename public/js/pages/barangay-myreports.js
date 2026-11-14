@@ -7,7 +7,7 @@ BB.page({ layout: 'site', role: 'Barangay Admin' }, function () {
         { h: 'Activity', cell: function (r) { return BB.H(r.activity_name); } },
         { h: 'Period', cell: function (r) { return BB.H(r.period_name); } },
         { h: 'Submitted', cell: function (r) { return BB.dateTimeText(r.date_submitted) + ' ' + (Number(r.is_late) === 1 ? BB.badge('Late') : ''); } },
-        { h: 'File', cell: function (r) { return '<a href="/download?t=submission&amp;id=' + r.date_id + '">' + BB.H(r.file_name) + '</a>'; } },
+        { h: 'File', cell: function (r) { return '<a href="/api/download?t=submission&amp;id=' + r.date_id + '">' + BB.H(r.file_name) + '</a>'; } },
         { h: 'Status', cell: function (r) { return BB.badge(r.submission_status); } },
         { h: 'Score', cell: function (r) { return BB.scoreText(r.score); } },
         { h: 'Remarks / Reason', cell: function (r) { return BB.H(r.remarks) + ' ' + BB.H(r.denial_reason); } }

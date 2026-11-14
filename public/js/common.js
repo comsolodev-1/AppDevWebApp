@@ -209,7 +209,7 @@
 
   // Links to /download cannot carry the token, so they are fetched with the token and saved by script
   document.addEventListener('click', function (e) {
-    var a = e.target.closest ? e.target.closest('a[href^="/download"]') : null;
+    var a = e.target.closest ? e.target.closest('a[href^="/api/download"]') : null;
     if (!a) return;
     e.preventDefault();
     BB.downloadFile(a.getAttribute('href'), '').catch(function (err) { window.alert(err.message); });
@@ -367,7 +367,7 @@
           (r.priority !== null && r.priority === 'High' ? BB.badge('High') : '') + '</h3>' +
           '<small>Posted ' + BB.dateTimeText(r.date_published) + '</small>' +
           '<p>' + BB.nl2br(r.content) + '</p>' +
-          (r.attachment_file_name === null ? '' : '<a class="btn btn-outline btn-sm" href="/download?t=announcement&amp;id=' + r.announcement_id + '">Download: ' + BB.H(r.attachment_file_name) + '</a>') +
+          (r.attachment_file_name === null ? '' : '<a class="btn btn-outline btn-sm" href="/api/download?t=announcement&amp;id=' + r.announcement_id + '">Download: ' + BB.H(r.attachment_file_name) + '</a>') +
           '</div>';
       });
       if (data.rows.length === 0) html = '<div class="card">No announcements at the moment.</div>';

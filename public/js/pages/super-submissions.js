@@ -6,7 +6,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
         { h: 'Activity', cell: function (r) { return BB.H(r.activity_name); } },
         { h: 'Period', cell: function (r) { return BB.H(r.period_name); } },
         { h: 'Submitted', cell: function (r) { return BB.dateTimeText(r.date_submitted) + ' ' + (Number(r.is_late) === 1 ? BB.badge('Late') : ''); } },
-        { h: 'File', cell: function (r) { return '<a href="/download?t=submission&amp;id=' + r.date_id + '">' + BB.H(r.file_name) + '</a>'; } },
+        { h: 'File', cell: function (r) { return '<a href="/api/download?t=submission&amp;id=' + r.date_id + '">' + BB.H(r.file_name) + '</a>'; } },
         { h: 'Status', cell: function (r) { return BB.badge(r.submission_status) + ' ' + (r.submission_status === 'Confirmed' ? '<small>' + BB.scoreText(r.score) + ' pt</small>' : ''); } },
         { h: 'Remarks / Reason', cell: function (r) { return BB.H(r.remarks) + ' ' + BB.H(r.denial_reason); } },
         { h: 'Action', cell: function (r) { return '<span class="actions">' + (r.submission_status === 'Pending' ? '<a href="#" data-id="' + r.date_id + '">Review</a>' : '') + '</span>'; } }
@@ -26,7 +26,7 @@ BB.page({ layout: 'site', role: 'Super Admin' }, function () {
       BB.$('hfSubmissionId').value = id;
       BB.html('litReviewInfo', '<p><b>' + BB.H(row.barangay_name) + '</b> - ' + BB.H(row.activity_name) + ' (' + BB.H(row.period_name) + ')<br />' +
         'Deadline: ' + BB.dateTimeText(row.submission_deadline) + ' &nbsp; Submitted: ' + BB.dateTimeText(row.date_submitted) + (late ? ' ' + BB.badge('Late') : '') + '<br />' +
-        'File: <a href="/download?t=submission&amp;id=' + id + '">' + BB.H(row.file_name) + '</a><br />' +
+        'File: <a href="/api/download?t=submission&amp;id=' + id + '">' + BB.H(row.file_name) + '</a><br />' +
         'Score if confirmed: <b>' + BB.scoreText(row.score_if_confirmed) + '</b></p>');
       BB.$('txtDenyReason').value = '';
       BB.$('fuDenial').value = '';

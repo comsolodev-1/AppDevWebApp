@@ -44,10 +44,9 @@ app.use('/api/account', require('./routes/account'));
 app.use('/api/barangay', require('./routes/barangay'));
 app.use('/api/super', require('./routes/super'));
 app.use('/api', require('./routes/public'));
-app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
-
 // Permission-checked downloads (the only way to get an uploaded file)
-app.use(require('./routes/download'));
+app.use('/api', require('./routes/download'));
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 // Static pages
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: 'index.html', dotfiles: 'ignore' }));

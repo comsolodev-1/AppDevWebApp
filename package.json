@@ -4,7 +4,7 @@
   "description": "Bantay Barangay - Report Monitoring and Compliance System for the DILG Municipal Office of Talisay, Camarines Norte (HTML, CSS, JavaScript, PostgreSQL). Runs locally or on Vercel + Neon.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node local.js"
   },
   "engines": {
     "node": ">=18"

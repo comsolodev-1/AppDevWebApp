@@ -20,7 +20,7 @@ BB.page({ layout: 'site', role: 'Barangay Admin' }, function () {
         return BB.dateText(r.submission_deadline) + ' ' + (r.is_overdue && r.display_status === 'Not Submitted' ? '<span class="badge badge-overdue">Overdue</span>' : '');
       } },
       { h: 'Submitted File', cell: function (r) {
-        return r.submission_id === null ? '-' : '<a href="/download?t=submission&amp;id=' + r.submission_id + '">' + BB.H(r.file_name) + '</a><br /><small>' + BB.dateText(r.date_submitted) + '</small>';
+        return r.submission_id === null ? '-' : '<a href="/api/download?t=submission&amp;id=' + r.submission_id + '">' + BB.H(r.file_name) + '</a><br /><small>' + BB.dateText(r.date_submitted) + '</small>';
       } },
       { h: 'Status', cell: function (r) {
         return BB.badge(r.display_status) + ' ' + (r.display_status === 'Confirmed' ? '<br /><small>' + BB.scoreText(r.score) + ' pt</small>' : '');
@@ -48,7 +48,7 @@ BB.page({ layout: 'site', role: 'Barangay Admin' }, function () {
     html += textBlock('Description', row.description);
     html += textBlock('Requirements / Instructions', row.instructions);
     if (row.template_file_name !== null) {
-      html += '<p><a class="btn btn-outline btn-sm" href="/download?t=template&amp;id=' + row.activity_id + '">Download template: ' + BB.H(row.template_file_name) + '</a></p>';
+      html += '<p><a class="btn btn-outline btn-sm" href="/api/download?t=template&amp;id=' + row.activity_id + '">Download template: ' + BB.H(row.template_file_name) + '</a></p>';
     }
     if (row.submission_id !== null) {
       html += '<p>Status: ' + BB.badge(row.submission_status) + ' &nbsp; Submitted ' + BB.dateTimeText(row.date_submitted);
@@ -56,7 +56,7 @@ BB.page({ layout: 'site', role: 'Barangay Admin' }, function () {
       html += '</p>';
       html += textBlock('Remarks', row.remarks);
       html += textBlock('Denial reason', row.denial_reason);
-      if (row.denial_attachment !== null) html += '<p><a href="/download?t=denial&amp;id=' + row.submission_id + '">Download denial attachment</a></p>';
+      if (row.denial_attachment !== null) html += '<p><a href="/api/download?t=denial&amp;id=' + row.submission_id + '">Download denial attachment</a></p>';
     }
     BB.html('litDetails', html);
     BB.show('pnlDetails', true);
