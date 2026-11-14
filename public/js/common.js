@@ -33,7 +33,21 @@
     opts = opts || {};
     opts.headers = authHeaders(opts.headers);
     opts.cache = 'no-store';
-    return fetch(url, opts).then(function (res) { storeToken(res); return res; });
+    var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, 30000) : null;
+    if (ctl) opts.signal = ctl.signal;
+    return fetch(url, opts).then(function (res) {
+      if (timer) clearTimeout(timer);
+      storeToken(res);
+      return res;
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      var failure = err && err.name === 'AbortError'
+        ? new Error('The server took too long to answer (' + url + '). Please try again.')
+        : new Error('Could not reach the server (' + url + '). Check your connection and try again.');
+      showProblem(failure.message);
+      throw failure;
+    });
   };
 
   /* ---------------- Ui.vb ---------------- */
@@ -165,7 +179,8 @@
           window.location.href = '/error.html';
           return new Promise(function () {});
         }
-        var err = new Error(data.error || 'The request could not be completed.');
+        var err = new Error(data.error || ('The request failed (HTTP ' + res.status + ') for ' + url + '.'));
+        if (!data.error) showProblem(err.message);   // not a normal validation message: show it on the page
         err.status = res.status;
         throw err;
       });
@@ -432,6 +447,23 @@
     if (!metaPromise) metaPromise = BB.get('/api/super/meta').catch(function (err) { metaPromise = null; throw err; });
     return metaPromise;
   };
+
+  // Anything that fails without being handled is shown on the page instead of failing silently
+  function showProblem(message) {
+    var host = document.getElementById('page') || document.body;
+    var el = document.getElementById('bbProblem');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bbProblem';
+      host.insertBefore(el, host.firstChild);
+    }
+    el.innerHTML = '<div class="notice notice-error"><b>Something could not be loaded.</b> ' + BB.H(message) +
+      ' <a href="/diagnose.html">Run diagnostics</a></div>';
+  }
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    showProblem(r && r.message ? r.message : String(r));
+  });
 
   // run an async action and show its error as a notice (try/catch of the original code-behind)
   BB.run = function (messageTarget, work) {

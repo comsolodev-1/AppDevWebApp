@@ -22,6 +22,21 @@ router.get('/session', (req, res) => {
   });
 });
 
+// Diagnostics: is the database reachable and does it hold the seed data? (counts only)
+router.get('/health', async (req, res) => {
+  try {
+    res.json({
+      ok: true,
+      barangays: await db.scalarInt('SELECT COUNT(*) FROM barangays'),
+      roles: await db.scalarInt('SELECT COUNT(*) FROM roles'),
+      users: await db.scalarInt('SELECT COUNT(*) FROM users')
+    });
+  } catch (err) {
+    console.error(err);
+    res.json({ ok: false, error: String(err.code || err.name || 'DB_ERROR') });
+  }
+});
+
 router.post('/login', wrap(async (req, res) => {
   const body = req.body || {};
   // honeypot field

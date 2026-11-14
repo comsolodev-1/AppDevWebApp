@@ -143,8 +143,11 @@ Checked locally against PostgreSQL 16 with the project's `schema.sql` and `seed.
 
 ## Troubleshooting
 
+Open `/diagnose.html` on your site first. It checks the server, the database (and that the seed data is there), and, when you are signed in, the admin data calls. It shows the HTTP code of each one. If a page cannot load its data it also shows a red message at the top of the page with the failing request. `/api/health` shows the database and seed status on its own.
+
 | Problem | Fix |
 |---|---|
+| Dropdowns or tables stay empty |  Read the red message at the top of the page, or open `/diagnose.html`. `barangays: 0` in the health check means `seed.sql` was not run in Neon. |
 | Pages work but data/login fails | Check `DATABASE_URL` in Vercel, that `schema.sql` and `seed.sql` were run in Neon, and the function logs |
 | Everyone gets signed out | `SESSION_SECRET` changed or the 20 minute timeout passed |
 | Signed in on one browser but not another | The login is stored per browser (localStorage); sign in again there |

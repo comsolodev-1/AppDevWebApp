@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Diagnostics - Bantay Barangay</title>
+    <link href="/Content/site.css" rel="stylesheet" />
+</head>
+<body>
+<div class="pubmain">
+    <h1>Diagnostics</h1>
+    <p class="sub">Checks that the server, the database and your login work. Send a screenshot or copy of this page if something is wrong.</p>
+    <div class="card"><div class="grid-wrap" id="out">Running checks...</div></div>
+    <p><a href="/index.html">Back to home</a> &nbsp; <a href="/login.html">Login</a></p>
+</div>
+<script>
+(function () {
+  var token = '';
+  try { token = window.localStorage.getItem('bb.token') || ''; } catch (e) { }
+  function esc(v) { return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var checks = [
+    ['Server answers', '/api/session', false],
+    ['Database + seed data', '/api/health', false],
+    ['Barangay list (public)', '/api/public/barangays', false],
+    ['Rankings (public)', '/api/rankings?year=' + new Date().getFullYear() + '&month=0', false]
+  ];
+  if (token) {
+    checks.push(['Signed in? (Super Admin only below)', '/api/session', true],
+      ['Dropdown lists (/api/super/meta)', '/api/super/meta', true],
+      ['Activities list', '/api/super/activities?search=&status=', true]);
+  }
+  var rows = [];
+  function next(i) {
+    if (i >= checks.length) {
+      var html = '<table class="grid" cellspacing="0"><tr><th>Check</th><th>URL</th><th>HTTP</th><th>ms</th><th>Result</th></tr>';
+      rows.forEach(function (r) { html += '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td><td>' + esc(r[4]) + '</td></tr>'; });
+      document.getElementById('out').innerHTML = html + '</table>' + (token ? '' : '<p><small>Not signed in, so the admin checks were skipped. Sign in as Super Admin and open this page again for the full test.</small></p>');
+      return;
+    }
+    var c = checks[i], t0 = Date.now();
+    var headers = c[2] && token ? { Authorization: 'Bearer ' + token } : {};
+    fetch(c[1], { headers: headers, cache: 'no-store' }).then(function (res) {
+      return res.text().then(function (text) {
+        rows.push([c[0], c[1], res.status, Date.now() - t0, text.replace(/\s+/g, ' ').slice(0, 160)]);
+      });
+    }).catch(function (err) {
+      rows.push([c[0], c[1], 'no answer', Date.now() - t0, err.message]);
+    }).then(function () { next(i + 1); });
+  }
+  next(0);
+})();
+</script>
+</body>
+</html>
